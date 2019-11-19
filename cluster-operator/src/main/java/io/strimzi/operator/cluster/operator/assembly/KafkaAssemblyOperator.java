@@ -51,6 +51,7 @@ import io.strimzi.operator.cluster.model.AbstractModel;
 import io.strimzi.operator.cluster.model.Ca;
 import io.strimzi.operator.cluster.model.ClientsCa;
 import io.strimzi.operator.cluster.model.ClusterCa;
+import io.strimzi.operator.cluster.model.CruiseControl;
 import io.strimzi.operator.cluster.model.EntityOperator;
 import io.strimzi.operator.cluster.model.EntityTopicOperator;
 import io.strimzi.operator.cluster.model.EntityUserOperator;
@@ -309,6 +310,13 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                 .compose(state -> state.entityOperatorDeployment())
                 .compose(state -> state.entityOperatorReady())
 
+                .compose(state -> state.getCruiseControlDescription())
+                .compose(state -> state.cruiseControlServiceAccount())
+                .compose(state -> state.cruiseControlSecret())
+                .compose(state -> state.cruiseControlDeployment())
+                .compose(state -> state.cruiseControlService())
+                .compose(state -> state.cruiseControlReady())
+
                 .compose(state -> state.getKafkaExporterDescription())
                 .compose(state -> state.kafkaExporterServiceAccount())
                 .compose(state -> state.kafkaExporterSecret())
@@ -327,8 +335,6 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
     ReconciliationState createReconciliationState(Reconciliation reconciliation, Kafka kafkaAssembly) {
         return new ReconciliationState(reconciliation, kafkaAssembly);
     }
-
-
 
     /**
      * Hold the mutable state during a reconciliation
@@ -354,6 +360,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         /* test */ KafkaStatus kafkaStatus = new KafkaStatus();
 
         private Service kafkaService;
+
         private Service kafkaHeadlessService;
         private ConfigMap kafkaMetricsAndLogsConfigMap;
         /* test */ ReconcileResult<StatefulSet> kafkaDiffs;
@@ -369,6 +376,8 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
 
         /* test */ EntityOperator entityOperator;
         /* test */ Deployment eoDeployment = null;
+        CruiseControl cruiseControl;
+        Deployment ccDeployment = null;
         private ConfigMap topicOperatorMetricsAndLogsConfigMap = null;
         private ConfigMap userOperatorMetricsAndLogsConfigMap;
         private Secret oldCoSecret;
@@ -1882,12 +1891,16 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
             kafkaCluster.setExternalAddresses(kafkaExternalAddresses);
             StatefulSet kafkaSts = kafkaCluster.generateStatefulSet(pfa.isOpenshift(), imagePullPolicy, imagePullSecrets);
             PodTemplateSpec template = kafkaSts.getSpec().getTemplate();
+
             Annotations.annotations(template).put(
                     Ca.ANNO_STRIMZI_IO_CLUSTER_CA_CERT_GENERATION,
                     String.valueOf(getCaCertGeneration(this.clusterCa)));
             Annotations.annotations(template).put(
                     Ca.ANNO_STRIMZI_IO_CLIENTS_CA_CERT_GENERATION,
                     String.valueOf(getCaCertGeneration(this.clientsCa)));
+
+            kafkaSts = CruiseControl.updateKafkaConfig(kafkaAssembly, kafkaSts);
+
             return withKafkaDiff(kafkaSetOperations.reconcile(namespace, kafkaCluster.getName(), kafkaSts));
         }
 
@@ -2485,6 +2498,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                     entityOperator == null ? null : entityOperator.generateSecret(clusterCa)));
         }
 
+
         private boolean isPodUpToDate(StatefulSet sts, Pod pod) {
             final int stsGeneration = StatefulSetOperator.getStsGeneration(sts);
             final int podGeneration = StatefulSetOperator.getPodGeneration(pod);
@@ -2493,6 +2507,72 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                     StatefulSetOperator.ANNO_STRIMZI_IO_GENERATION, podGeneration,
                     StatefulSetOperator.ANNO_STRIMZI_IO_GENERATION, stsGeneration);
             return stsGeneration == podGeneration;
+        }
+
+        private final Future<ReconciliationState> getCruiseControlDescription() {
+            Future<ReconciliationState> fut = Future.future();
+
+            vertx.createSharedWorkerExecutor("kubernetes-ops-pool").<ReconciliationState>executeBlocking(
+                future -> {
+                    try {
+                        CruiseControl cruiseControl = CruiseControl.fromCrd(kafkaAssembly, versions);
+
+                        if (cruiseControl != null) {
+                            Map<String, String> annotations = new HashMap<>();
+                            this.cruiseControl = cruiseControl;
+                            this.ccDeployment = cruiseControl.generateDeployment(annotations, pfa.isOpenshift(), imagePullPolicy, imagePullSecrets);
+                        }
+                        future.complete(this);
+                    } catch (Throwable e) {
+                        future.fail(e);
+                    }
+                }, true,
+                res -> {
+                    if (res.succeeded()) {
+                        fut.complete(res.result());
+                    } else {
+                        fut.fail(res.cause());
+                    }
+                }
+            );
+            return fut;
+        }
+
+        Future<ReconciliationState> cruiseControlServiceAccount() {
+            return withVoid(serviceAccountOperations.reconcile(namespace,
+                    CruiseControl.cruiseControlServiceAccountName(name),
+                    ccDeployment != null ? cruiseControl.generateServiceAccount() : null));
+        }
+
+        Future<ReconciliationState> cruiseControlSecret() {
+            return withVoid(secretOperations.reconcile(namespace, CruiseControl.secretName(name), cruiseControl.generateSecret(clusterCa)));
+        }
+
+        Future<ReconciliationState> cruiseControlDeployment() {
+            if (this.cruiseControl != null && ccDeployment != null) {
+                Future<Deployment> future = deploymentOperations.getAsync(namespace, this.cruiseControl.getName());
+                return future.compose(dep -> {
+                    return withVoid(deploymentOperations.reconcile(namespace, this.cruiseControl.getName(), ccDeployment));
+                }).map(i -> this);
+            } else {
+                return withVoid(deploymentOperations.reconcile(namespace, CruiseControl.cruiseControlName(name), null));
+            }
+        }
+
+        Future<ReconciliationState> cruiseControlService() {
+            return withVoid(serviceOperations.reconcile(namespace, this.cruiseControl.getServiceName(), this.cruiseControl.generateService()));
+        }
+
+        Future<ReconciliationState> cruiseControlReady() {
+            if (this.cruiseControl != null && ccDeployment != null) {
+                Future<Deployment> future = deploymentOperations.getAsync(namespace, this.cruiseControl.getName());
+                return future.compose(dep -> {
+                    return withVoid(deploymentOperations.waitForObserved(namespace, this.cruiseControl.getName(), 1_000, operationTimeoutMs));
+                }).compose(dep -> {
+                    return withVoid(deploymentOperations.readiness(namespace, this.cruiseControl.getName(), 1_000, operationTimeoutMs));
+                }).map(i -> this);
+            }
+            return withVoid(Future.succeededFuture());
         }
 
         private boolean isPodCaCertUpToDate(Pod pod, Ca ca) {

@@ -20,6 +20,8 @@ ENV STRIMZI_VERSION=${strimzi_version}
 
 COPY $KAFKA_DIST_DIR $KAFKA_HOME
 COPY ./scripts/ $KAFKA_HOME
+RUN mkdir ${KAFKA_HOME}/logs && chmod 777 -R ${KAFKA_HOME}/logs
+COPY ./config/* ${KAFKA_HOME}/config/
 
 #####
 # Add Kafka Exporter
@@ -49,6 +51,10 @@ COPY ./tmp/tracing-agent.jar ${KAFKA_HOME}/libs/
 #####
 COPY kafka-thirdparty-libs/${THIRD_PARTY_LIBS}/target/dependency/ ${KAFKA_HOME}/libs/
 
+RUN  mkdir -p ${KAFKA_HOME}/cc-libs/
+COPY kafka-thirdparty-libs/cc/target/dependency/ ${KAFKA_HOME}/cc-libs/
+COPY kafka-thirdparty-libs/cc/target/dependency/cruise-control-metrics-reporter-*.jar ${KAFKA_HOME}/libs/
+
 #####
 # Add Stunnel
 #####
@@ -72,5 +78,7 @@ RUN echo "${TINI_SHA256} */usr/bin/tini" | sha256sum -c \
     && chmod +x /usr/bin/tini
 
 WORKDIR $KAFKA_HOME
+
+RUN chmod -R 774 $KAFKA_HOME
 
 USER 1001
