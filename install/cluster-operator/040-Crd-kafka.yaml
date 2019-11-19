@@ -2591,6 +2591,135 @@ spec:
                       properties:
                         gcLoggingEnabled:
                           type: boolean
+                cruiseControlOperator:
+                  type: object
+                  properties:
+                    image:
+                      type: string
+                    cruiseControl:
+                      type: object
+                      properties:
+                        replicas:
+                          type: integer
+                          minimum: 1
+                        image:
+                          type: string
+                        tlsSidecar:
+                          type: object
+                          properties:
+                            image:
+                              type: string
+                            livenessProbe:
+                              type: object
+                              properties:
+                                failureThreshold:
+                                  type: integer
+                                initialDelaySeconds:
+                                  type: integer
+                                  minimum: 0
+                                periodSeconds:
+                                  type: integer
+                                successThreshold:
+                                  type: integer
+                                timeoutSeconds:
+                                  type: integer
+                                  minimum: 0
+                            logLevel:
+                              type: string
+                              enum:
+                              - emerg
+                              - alert
+                              - crit
+                              - err
+                              - warning
+                              - notice
+                              - info
+                              - debug
+                            readinessProbe:
+                              type: object
+                              properties:
+                                failureThreshold:
+                                  type: integer
+                                initialDelaySeconds:
+                                  type: integer
+                                  minimum: 0
+                                periodSeconds:
+                                  type: integer
+                                successThreshold:
+                                  type: integer
+                                timeoutSeconds:
+                                  type: integer
+                                  minimum: 0
+                            resources:
+                              type: object
+                              properties:
+                                limits:
+                                  type: object
+                                requests:
+                                  type: object
+                        version:
+                          type: string
+                    jvmOptions:
+                      type: object
+                      properties:
+                        gcLoggingEnabled:
+                          type: boolean
+                    livenessProbe:
+                      type: object
+                      properties:
+                        failureThreshold:
+                          type: integer
+                        initialDelaySeconds:
+                          type: integer
+                          minimum: 0
+                        periodSeconds:
+                          type: integer
+                        successThreshold:
+                          type: integer
+                        timeoutSeconds:
+                          type: integer
+                          minimum: 0
+                    logging:
+                      type: object
+                      properties:
+                        loggers:
+                          type: object
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                          - inline
+                          - external
+                      required:
+                      - type
+                    readinessProbe:
+                      type: object
+                      properties:
+                        failureThreshold:
+                          type: integer
+                        initialDelaySeconds:
+                          type: integer
+                          minimum: 0
+                        periodSeconds:
+                          type: integer
+                        successThreshold:
+                          type: integer
+                        timeoutSeconds:
+                          type: integer
+                          minimum: 0
+                    reconciliationIntervalSeconds:
+                      type: integer
+                      minimum: 0
+                    resources:
+                      type: object
+                      properties:
+                        limits:
+                          type: object
+                        requests:
+                          type: object
+                    watchedNamespace:
+                      type: string
                 affinity:
                   type: object
                   properties:
