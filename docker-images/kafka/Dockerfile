@@ -20,8 +20,6 @@ ENV STRIMZI_VERSION=${strimzi_version}
 
 COPY $KAFKA_DIST_DIR $KAFKA_HOME
 COPY ./scripts/ $KAFKA_HOME
-RUN mkdir ${KAFKA_HOME}/logs && chmod 777 -R ${KAFKA_HOME}/logs
-COPY ./config/* ${KAFKA_HOME}/config/
 
 #####
 # Add Kafka Exporter
@@ -40,6 +38,23 @@ RUN curl -LO https://github.com/danielqsj/kafka_exporter/releases/download/v${KA
 COPY ./exporter-scripts $KAFKA_EXPORTER_HOME
 
 #####
+# Add Cruise Control
+#####
+ENV CRUISE_CONTROL_HOME=/opt/cruise-control
+ENV CRUISE_CONTROL_VERSION=2.0.75
+ENV CRUISE_CONTROL_CHECKSUM="5a918304107f19214e1b916e84777021a64aa967b638cafa0a7c765f9e61ee2fd11d93b887b16d31f913adf5b73fe48cdb6e2a41f8859ce6999eb04140c0d06f  cruise-control-${CRUISE_CONTROL_VERSION}.tar.gz"
+
+RUN curl -L https://github.com/linkedin/cruise-control/archive/${CRUISE_CONTROL_VERSION}.tar.gz -o cruise-control-${CRUISE_CONTROL_VERSION}.tar.gz \
+    && echo $CRUISE_CONTROL_CHECKSUM > cruise-control-${CRUISE_CONTROL_VERSION}.tar.gz.sha512 \
+    && sha512sum --check cruise-control-${CRUISE_CONTROL_VERSION}.tar.gz.sha512 \
+    && mkdir -p $CRUISE_CONTROL_HOME/config \
+    && tar xvfz cruise-control-${CRUISE_CONTROL_VERSION}.tar.gz -C $CRUISE_CONTROL_HOME --strip-components=1 \
+    && rm -f cruise-control-${CRUISE_CONTROL_VERSION}.tar.gz*
+
+COPY ./cruise-control-scripts $CRUISE_CONTROL_HOME
+# TODO Strip out unecessary CC source files
+
+#####
 # Add Strimzi agents
 #####
 COPY ./tmp/kafka-agent.jar ${KAFKA_HOME}/libs/
@@ -51,8 +66,8 @@ COPY ./tmp/tracing-agent.jar ${KAFKA_HOME}/libs/
 #####
 COPY kafka-thirdparty-libs/${THIRD_PARTY_LIBS}/target/dependency/ ${KAFKA_HOME}/libs/
 
-RUN  mkdir -p ${KAFKA_HOME}/cc-libs/
-COPY kafka-thirdparty-libs/cc/target/dependency/ ${KAFKA_HOME}/cc-libs/
+RUN  mkdir -p ${CRUISE_CONTROL_HOME}/libs/
+COPY kafka-thirdparty-libs/cc/target/dependency/ ${CRUISE_CONTROL_HOME}/libs/
 COPY kafka-thirdparty-libs/cc/target/dependency/cruise-control-metrics-reporter-*.jar ${KAFKA_HOME}/libs/
 
 #####
