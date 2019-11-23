@@ -205,7 +205,7 @@ public class CruiseControl extends AbstractModel {
 
     protected List<VolumeMount> getVolumeMounts() {
         List<VolumeMount> volumeMountList = new ArrayList<>(1);
-        volumeMountList.add(createVolumeMount(logAndMetricsConfigVolumeName, logAndMetricsConfigMountPath));
+        //volumeMountList.add(createVolumeMount(logAndMetricsConfigVolumeName, logAndMetricsConfigMountPath));
         volumeMountList.add(createVolumeMount(CruiseControl.TLS_SIDECAR_CC_CERTS_VOLUME_NAME, CruiseControl.TLS_SIDECAR_CC_CERTS_VOLUME_MOUNT));
         volumeMountList.add(createVolumeMount(CruiseControl.TLS_SIDECAR_CA_CERTS_VOLUME_NAME, CruiseControl.TLS_SIDECAR_CA_CERTS_VOLUME_MOUNT));
 
@@ -243,11 +243,11 @@ public class CruiseControl extends AbstractModel {
         Container container = new ContainerBuilder()
                 .withName(name)
                 .withImage(getImage())
-                .withCommand("/opt/kafka/cruise_control_run.sh")
-                .withArgs("/opt/kafka/config/cruisecontrol.properties")
+                .withCommand("/opt/cruise-control/cruise_control_run.sh")
                 .withEnv(getEnvVars())
                 .withPorts(getContainerPortList())
                 .withResources(getResources())
+                .withVolumeMounts(getVolumeMounts())
                 .withImagePullPolicy(determineImagePullPolicy(imagePullPolicy, getImage()))
                 .build();
 
