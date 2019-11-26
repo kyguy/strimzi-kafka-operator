@@ -9,7 +9,7 @@ export CERTS_STORE_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32)
 mkdir -p /tmp/cruise-control
 
 # Import certificates into keystore and truststore
-./$CRUISE_CONTROL_HOME/cruise_control_tls_prepare_certificates.sh
+$CRUISE_CONTROL_HOME/cruise_control_tls_prepare_certificates.sh
 
 export STRIMZI_TRUSTSTORE_LOCATION=/tmp/cruise-control/replication.truststore.p12
 export STRIMZI_TRUSTSTORE_PASSWORD=$CERTS_STORE_PASSWORD
