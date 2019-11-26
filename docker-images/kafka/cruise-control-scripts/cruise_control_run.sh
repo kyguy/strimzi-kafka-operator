@@ -25,7 +25,7 @@ fi
 CRUISE_CONTROL_CONFIG=$CRUISE_CONTROL_HOME/config/cruisecontrol.properties
 
 # TODO Make kafka and zoo address generic
-sed -i 's@bootstrap.servers=.*@bootstrap.servers=my-cluster-kafka-bootstrap:9092@g' $CRUISE_CONTROL_CONFIG
+sed -i "s@bootstrap.servers=.*@bootstrap.servers=$STRIMZI_KAFKA_BOOTSTRAP_SERVERS@g" $CRUISE_CONTROL_CONFIG
 sed -i "s@capacity.config.file=.*@capacity.config.file=$CRUISE_CONTROL_HOME/config/capacityJBOD.json@g" $CRUISE_CONTROL_CONFIG
 sed -i "s@cluster.configs.file=.*@cluster.configs.file=$CRUISE_CONTROL_HOME/config/clusterConfigs.json@g" $CRUISE_CONTROL_CONFIG
 

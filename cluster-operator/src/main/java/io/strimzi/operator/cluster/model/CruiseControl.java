@@ -53,9 +53,6 @@ public class CruiseControl extends AbstractModel {
     protected static final String TLS_SIDECAR_CA_CERTS_VOLUME_NAME = "cluster-ca-certs";
     protected static final String TLS_SIDECAR_CA_CERTS_VOLUME_MOUNT = "/etc/tls-sidecar/cluster-ca-certs/";
 
-    // Entity Operator configuration keys
-    public static final String ENV_VAR_ZOOKEEPER_CONNECT = "STRIMZI_ZOOKEEPER_CONNECT";
-
     private String zookeeperConnect;
     private List<ContainerEnvVar> templateTlsSidecarContainerEnvVars;
 
@@ -66,13 +63,18 @@ public class CruiseControl extends AbstractModel {
 
     protected static final String CRUISE_CONTROL_PORT_NAME = "http-9090";
     protected static final int CRUISE_CONTROL_PORT = 9090;
+    protected static final int DEFAULT_BOOTSTRAP_SERVERS_PORT = 9092;
 
     // Cruise Control configuration keys (EnvVariables)
     protected static final String ENV_VAR_PREFIX = "CRUISE_CONTROL_";
+    protected static final String ENV_VAR_ZOOKEEPER_CONNECT = "STRIMZI_ZOOKEEPER_CONNECT";
+    protected static final String ENV_VAR_STRIMZI_KAFKA_BOOTSTRAP_SERVERS = "STRIMZI_KAFKA_BOOTSTRAP_SERVERS";
+
 
     protected List<ContainerEnvVar> templateContainerEnvVars;
 
     private boolean isDeployed;
+    private String kafkaBootstrapServers;
 
     /**
      * Constructor
@@ -92,6 +94,7 @@ public class CruiseControl extends AbstractModel {
         this.logAndMetricsConfigVolumeName = "kafka-metrics-and-logging";
         this.logAndMetricsConfigMountPath = "/opt/kafka/custom-config/";
         this.zookeeperConnect = defaultZookeeperConnect(cluster);
+        this.kafkaBootstrapServers = defaultBootstrapServers(cluster);
     }
 
     protected void setTlsSidecar(TlsSidecar tlsSidecar) {
@@ -100,6 +103,10 @@ public class CruiseControl extends AbstractModel {
 
     protected static String defaultZookeeperConnect(String cluster) {
         return ZookeeperCluster.serviceName(cluster) + ":" + EntityOperatorSpec.DEFAULT_ZOOKEEPER_PORT;
+    }
+
+    protected static String defaultBootstrapServers(String cluster) {
+        return KafkaCluster.serviceName(cluster) + ":" + DEFAULT_BOOTSTRAP_SERVERS_PORT;
     }
 
     public void setZookeeperConnect(String zookeeperConnect) {
@@ -283,6 +290,7 @@ public class CruiseControl extends AbstractModel {
     protected List<EnvVar> getEnvVars() {
         List<EnvVar> varList = new ArrayList<>();
 
+        varList.add(buildEnvVar(ENV_VAR_STRIMZI_KAFKA_BOOTSTRAP_SERVERS, String.valueOf(defaultBootstrapServers(cluster))));
         varList.add(buildEnvVar(ENV_VAR_STRIMZI_KAFKA_GC_LOG_ENABLED, String.valueOf(gcLoggingEnabled)));
 
         heapOptions(varList, 1.0, 0L);
