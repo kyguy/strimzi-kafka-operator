@@ -132,18 +132,33 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.isDeployed = true;
 
             cruiseControl.setReplicas(spec != null && spec.getReplicas() > 0 ? spec.getReplicas() : DEFAULT_REPLICAS);
-            cruiseControl.setImage(versions.kafkaImage(spec.getImage(), spec.getVersion()));
+
+            String image = spec.getImage();
+            if (image == null) {
+                image = System.getenv().get(ClusterOperatorConfig.STRIMZI_DEFAULT_CRUISE_CONTROL_IMAGE);
+            }
+            if (image == null) {
+                KafkaClusterSpec kafkaClusterSpec = kafkaAssembly.getSpec().getKafka();
+                image = versions.kafkaImage(kafkaClusterSpec != null ? kafkaClusterSpec.getImage() : null,
+                        kafkaClusterSpec != null ? kafkaClusterSpec.getVersion() : null);
+            }
+            cruiseControl.setImage(image);
 
             TlsSidecar tlsSidecar = spec.getTlsSidecar();
-
-            cruiseControl.setTlsSidecar(tlsSidecar);
+            if (tlsSidecar == null) {
+                tlsSidecar = new TlsSidecar();
+            }
 
             String tlsSideCarImage = tlsSidecar != null ? tlsSidecar.getImage() : null;
             if (tlsSideCarImage == null) {
                 KafkaClusterSpec kafkaClusterSpec = kafkaAssembly.getSpec().getKafka();
                 tlsSideCarImage = System.getenv().getOrDefault(ClusterOperatorConfig.STRIMZI_DEFAULT_TLS_SIDECAR_CRUISE_CONTROL_IMAGE, versions.kafkaImage(kafkaClusterSpec.getImage(), versions.defaultVersion().version()));
             }
+
+            tlsSidecar.setImage(tlsSideCarImage);
             cruiseControl.tlsSidecarImage = tlsSideCarImage;
+            cruiseControl.setTlsSidecar(tlsSidecar);
+
             cruiseControl.setOwnerReference(kafkaAssembly);
         } else {
             cruiseControl.isDeployed = false;
