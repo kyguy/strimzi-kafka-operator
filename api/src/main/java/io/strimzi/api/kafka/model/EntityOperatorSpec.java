@@ -42,7 +42,6 @@ public class EntityOperatorSpec implements UnknownPropertyPreserving, Serializab
 
     private EntityTopicOperatorSpec topicOperator;
     private EntityUserOperatorSpec userOperator;
-    private EntityCruiseControlOperatorSpec cruiseControlOperator;
 
     private Affinity affinity;
     private List<Toleration> tolerations;
@@ -68,15 +67,6 @@ public class EntityOperatorSpec implements UnknownPropertyPreserving, Serializab
 
     public void setUserOperator(EntityUserOperatorSpec userOperator) {
         this.userOperator = userOperator;
-    }
-
-    @Description("Configuration of the Cruise Control Operator")
-    public EntityCruiseControlOperatorSpec getCruiseControlOperator() {
-        return cruiseControlOperator;
-    }
-
-    public void setCruiseControlOperator(EntityCruiseControlOperatorSpec cruiseControlOperator) {
-        this.cruiseControlOperator = cruiseControlOperator;
     }
 
     @Description("The pod's affinity rules.")

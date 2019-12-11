@@ -87,10 +87,6 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.quartz.CronExpression;
-
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -107,8 +103,12 @@ import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.quartz.CronExpression;
 
 import static io.fabric8.kubernetes.client.internal.PatchUtils.patchMapper;
+import static io.strimzi.operator.cluster.model.AbstractModel.ANCILLARY_CM_KEY_LOG_CONFIG;
 import static io.strimzi.operator.cluster.model.AbstractModel.ANNO_STRIMZI_IO_STORAGE;
 import static io.strimzi.operator.cluster.model.KafkaCluster.ANNO_STRIMZI_IO_FROM_VERSION;
 import static io.strimzi.operator.cluster.model.KafkaCluster.ANNO_STRIMZI_IO_KAFKA_VERSION;
@@ -312,6 +312,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
 
                 .compose(state -> state.getCruiseControlDescription())
                 .compose(state -> state.cruiseControlServiceAccount())
+                .compose(state -> state.cruiseControlAncillaryCm())
                 .compose(state -> state.cruiseControlSecret())
                 .compose(state -> state.cruiseControlDeployment())
                 .compose(state -> state.cruiseControlService())
@@ -376,11 +377,13 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
 
         /* test */ EntityOperator entityOperator;
         /* test */ Deployment eoDeployment = null;
-        CruiseControl cruiseControl;
-        Deployment ccDeployment = null;
         private ConfigMap topicOperatorMetricsAndLogsConfigMap = null;
         private ConfigMap userOperatorMetricsAndLogsConfigMap;
         private Secret oldCoSecret;
+
+        CruiseControl cruiseControl;
+        Deployment ccDeployment = null;
+        private ConfigMap cruiseControlMetricsAndLogsConfigMap;
 
         /* test */ KafkaExporter kafkaExporter;
         /* test */ Deployment exporterDeployment = null;
@@ -2511,14 +2514,25 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
 
         private final Future<ReconciliationState> getCruiseControlDescription() {
             Promise<ReconciliationState> promise = Promise.promise();
-
             vertx.createSharedWorkerExecutor("kubernetes-ops-pool").<ReconciliationState>executeBlocking(
                 future -> {
                     try {
                         CruiseControl cruiseControl = CruiseControl.fromCrd(kafkaAssembly, versions);
 
                         if (cruiseControl != null) {
+                            ConfigMap logAndMetricsConfigMap = cruiseControl.generateMetricsAndLogConfigMap(
+                                    cruiseControl.getLogging() instanceof ExternalLogging ?
+                                            configMapOperations.get(kafkaAssembly.getMetadata().getNamespace(), ((ExternalLogging) cruiseControl.getLogging()).getName()) :
+                                            null);
+
+                            String configAnnotation = "";
+                            if (logAndMetricsConfigMap != null) {
+                                configAnnotation += logAndMetricsConfigMap.getData().get(ANCILLARY_CM_KEY_LOG_CONFIG);
+                            }
                             Map<String, String> annotations = new HashMap<>();
+                            annotations.put(CruiseControl.ANNO_STRIMZI_IO_LOGGING, configAnnotation);
+
+                            this.cruiseControlMetricsAndLogsConfigMap = logAndMetricsConfigMap;
                             this.cruiseControl = cruiseControl;
                             this.ccDeployment = cruiseControl.generateDeployment(annotations, pfa.isOpenshift(), imagePullPolicy, imagePullSecrets);
                         }
@@ -2542,6 +2556,13 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
             return withVoid(serviceAccountOperations.reconcile(namespace,
                     CruiseControl.cruiseControlServiceAccountName(name),
                     ccDeployment != null ? cruiseControl.generateServiceAccount() : null));
+        }
+
+        Future<ReconciliationState> cruiseControlAncillaryCm() {
+            return withVoid(configMapOperations.reconcile(namespace,
+                    ccDeployment != null && cruiseControl != null ?
+                            cruiseControl.getAncillaryConfigName() : CruiseControl.metricAndLogConfigsName(name),
+                    cruiseControlMetricsAndLogsConfigMap));
         }
 
         Future<ReconciliationState> cruiseControlSecret() {
