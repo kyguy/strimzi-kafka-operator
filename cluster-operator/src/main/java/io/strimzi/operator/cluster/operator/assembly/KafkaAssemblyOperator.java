@@ -2510,7 +2510,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         }
 
         private final Future<ReconciliationState> getCruiseControlDescription() {
-            Future<ReconciliationState> fut = Future.future();
+            Promise<ReconciliationState> promise = Promise.promise();
 
             vertx.createSharedWorkerExecutor("kubernetes-ops-pool").<ReconciliationState>executeBlocking(
                 future -> {
@@ -2529,13 +2529,13 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                 }, true,
                 res -> {
                     if (res.succeeded()) {
-                        fut.complete(res.result());
+                        promise.complete(res.result());
                     } else {
-                        fut.fail(res.cause());
+                        promise.fail(res.cause());
                     }
                 }
             );
-            return fut;
+            return promise.future();
         }
 
         Future<ReconciliationState> cruiseControlServiceAccount() {
