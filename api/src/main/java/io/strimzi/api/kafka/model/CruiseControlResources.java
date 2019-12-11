@@ -48,4 +48,13 @@ public class CruiseControlResources {
     public static String secretName(String clusterName) {
         return deploymentName(clusterName) + "-certs";
     }
+
+    /**
+     * Returns the name of the Cruise Control log {@code ConfigMap} for a {@code Kafka} cluster of the given name.
+     * @param clusterName  The {@code metadata.name} of the {@code Kafka} resource.
+     * @return The name of the corresponding Cruise Control log {@code ConfigMap}.
+     */
+    public static String logAndMetricsConfigMapName(String clusterName) {
+        return clusterName + "-cruise-control-config";
+    }
 }
