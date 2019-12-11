@@ -8,7 +8,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import io.strimzi.api.kafka.model.template.CruiseControlTemplate;
-import io.strimzi.api.kafka.model.tracing.Tracing;
 import io.strimzi.crdgenerator.annotations.Description;
 import io.strimzi.crdgenerator.annotations.Minimum;
 import io.sundr.builder.annotations.Buildable;
@@ -47,7 +46,6 @@ public class CruiseControlSpec implements UnknownPropertyPreserving, Serializabl
     private Probe readinessProbe;
     private JvmOptions jvmOptions;
     private Logging logging;
-    private Tracing tracing;
     private CruiseControlTemplate template;
     private Map<String, Object> additionalProperties = new HashMap<>(0);
 
@@ -100,16 +98,6 @@ public class CruiseControlSpec implements UnknownPropertyPreserving, Serializabl
 
     public void setConfig(Map<String, Object> config) {
         this.config = config;
-    }
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    @Description("The configuration of tracing in Cruise Control.")
-    public Tracing getTracing() {
-        return tracing;
-    }
-
-    public void setTracing(Tracing tracing) {
-        this.tracing = tracing;
     }
 
     @Description("Logging configuration for Cruise Control.")

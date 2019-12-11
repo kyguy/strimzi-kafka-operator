@@ -3713,15 +3713,6 @@ spec:
                                 type: string
                               value:
                                 type: string
-                tracing:
-                  type: object
-                  properties:
-                    type:
-                      type: string
-                      enum:
-                      - jaeger
-                  required:
-                  - type
                 version:
                   type: string
             kafkaExporter:
