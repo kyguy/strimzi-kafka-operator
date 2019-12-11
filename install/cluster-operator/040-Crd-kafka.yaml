@@ -3297,8 +3297,6 @@ spec:
                       type: object
                     requests:
                       type: object
-                metrics:
-                  type: object
                 logging:
                   type: object
                   properties:
