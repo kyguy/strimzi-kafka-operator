@@ -28,15 +28,15 @@ import io.strimzi.api.kafka.model.ContainerEnvVar;
 import io.strimzi.api.kafka.model.CruiseControlResources;
 import io.strimzi.api.kafka.model.CruiseControlSpec;
 import io.strimzi.api.kafka.model.EntityOperatorSpec;
+import io.strimzi.api.kafka.model.InlineLogging;
 import io.strimzi.api.kafka.model.Kafka;
 import io.strimzi.api.kafka.model.KafkaClusterSpec;
 import io.strimzi.api.kafka.model.KafkaResources;
+import io.strimzi.api.kafka.model.Logging;
 import io.strimzi.api.kafka.model.TlsSidecar;
+import io.strimzi.api.kafka.model.template.CruiseControlTemplate;
 import io.strimzi.operator.cluster.ClusterOperatorConfig;
 import io.strimzi.operator.cluster.operator.assembly.KafkaAssemblyOperator;
-import io.strimzi.api.kafka.model.InlineLogging;
-import io.strimzi.api.kafka.model.Logging;
-import io.strimzi.api.kafka.model.template.CruiseControlTemplate;
 import io.strimzi.operator.common.Annotations;
 import io.strimzi.operator.common.model.Labels;
 import java.util.ArrayList;
@@ -194,26 +194,30 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.setResources(spec.getResources());
             cruiseControl.setTolerations(tolerations(spec));
             cruiseControl.setOwnerReference(kafkaAssembly);
-
-            if (spec.getTemplate() != null) {
-                CruiseControlTemplate template = spec.getTemplate();
-
-                ModelUtils.parsePodTemplate(cruiseControl, template.getPod());
-
-                if (template.getCruiseControlContainer() != null && template.getCruiseControlContainer().getEnv() != null) {
-                    cruiseControl.templateCruiseControlContainerEnvVars = template.getCruiseControlContainer().getEnv();
-                }
-
-                if (template.getTlsSidecarContainer() != null && template.getTlsSidecarContainer().getEnv() != null) {
-                    cruiseControl.templateTlsSidecarContainerEnvVars = template.getTlsSidecarContainer().getEnv();
-                }
-
-                ModelUtils.parsePodDisruptionBudgetTemplate(cruiseControl, template.getPodDisruptionBudget());
-            }
+            cruiseControl = updateTemplate(spec, cruiseControl);
         } else {
             cruiseControl.isDeployed = false;
         }
 
+        return cruiseControl;
+    }
+
+    public static CruiseControl updateTemplate(CruiseControlSpec spec, CruiseControl cruiseControl) {
+        if (spec.getTemplate() != null) {
+            CruiseControlTemplate template = spec.getTemplate();
+
+            ModelUtils.parsePodTemplate(cruiseControl, template.getPod());
+
+            if (template.getCruiseControlContainer() != null && template.getCruiseControlContainer().getEnv() != null) {
+                cruiseControl.templateCruiseControlContainerEnvVars = template.getCruiseControlContainer().getEnv();
+            }
+
+            if (template.getTlsSidecarContainer() != null && template.getTlsSidecarContainer().getEnv() != null) {
+                cruiseControl.templateTlsSidecarContainerEnvVars = template.getTlsSidecarContainer().getEnv();
+            }
+
+            ModelUtils.parsePodDisruptionBudgetTemplate(cruiseControl, template.getPodDisruptionBudget());
+        }
         return cruiseControl;
     }
 
