@@ -43,12 +43,17 @@ if [ -z "$KAFKA_HEAP_OPTS" -a -n "${DYNAMIC_HEAP_FRACTION}" ]; then
     fi
 fi
 
+# Generate and print the config file
+echo "Starting Kafka with configuration:"
+$CRUISE_CONTROL_HOME/cruise_control_config_generator.sh | tee /tmp/cruisecontrol.properties
+echo ""
+
 CRUISE_CONTROL_CONFIG=$CRUISE_CONTROL_HOME/config/cruisecontrol.properties
 
-# TODO Generate default configuration
-sed -i "s@bootstrap.servers=.*@bootstrap.servers=$STRIMZI_KAFKA_BOOTSTRAP_SERVERS@g" $CRUISE_CONTROL_CONFIG
-sed -i "s@capacity.config.file=.*@capacity.config.file=$CRUISE_CONTROL_HOME/config/capacityJBOD.json@g" $CRUISE_CONTROL_CONFIG
-sed -i "s@cluster.configs.file=.*@cluster.configs.file=$CRUISE_CONTROL_HOME/config/clusterConfigs.json@g" $CRUISE_CONTROL_CONFIG
+# JVM performance options
+if [ -z "$KAFKA_JVM_PERFORMANCE_OPTS" ]; then
+  KAFKA_JVM_PERFORMANCE_OPTS="-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+DisableExplicitGC -Djava.awt.headless=true"
+fi
 
 # starting Kafka server with final configuration
-exec $CRUISE_CONTROL_HOME/kafka-cruise-control-start.sh $CRUISE_CONTROL_HOME/config/cruisecontrol.properties
+exec java $KAFKA_HEAP_OPTS $KAFKA_JVM_PERFORMANCE_OPTS $KAFKA_GC_LOG_OPTS $KAFKA_JMX_OPTS $KAFKA_LOG4J_OPTS -cp $CLASSPATH $KAFKA_OPTS com.linkedin.kafka.cruisecontrol.KafkaCruiseControlMain /tmp/cruisecontrol.properties
