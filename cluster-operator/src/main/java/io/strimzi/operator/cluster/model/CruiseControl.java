@@ -54,6 +54,7 @@ public class CruiseControl extends AbstractModel {
     private static final Logger log = LogManager.getLogger(KafkaAssemblyOperator.class.getName());
 
     public static final String ENV_VAR_CRUISE_CONTROL_CONFIGURATION = "CRUISE_CONTROL_CONFIGURATION";
+    public static final String ENV_VAR_CLUSTER_NAME = "CLUSTER_NAME";
 
     protected static final String TLS_SIDECAR_NAME = "tls-sidecar";
     protected static final String TLS_SIDECAR_CC_CERTS_VOLUME_NAME = "cc-certs";
@@ -131,8 +132,6 @@ public class CruiseControl extends AbstractModel {
 
         CruiseControlSpec spec  = kafkaAssembly.getSpec().getCruiseControl();
 
-        cruiseControl = updateConfiguration(spec, cruiseControl);
-
         if (spec != null) {
             cruiseControl.isDeployed = true;
 
@@ -162,6 +161,8 @@ public class CruiseControl extends AbstractModel {
             tlsSidecar.setImage(tlsSideCarImage);
             cruiseControl.tlsSidecarImage = tlsSideCarImage;
             cruiseControl.setTlsSidecar(tlsSidecar);
+
+            cruiseControl = updateConfiguration(spec, cruiseControl);
 
             if (spec.getReadinessProbe() != null) {
                 cruiseControl.setReadinessProbe(spec.getReadinessProbe());
@@ -376,6 +377,7 @@ public class CruiseControl extends AbstractModel {
 
         varList.add(buildEnvVar(ENV_VAR_STRIMZI_KAFKA_BOOTSTRAP_SERVERS, String.valueOf(defaultBootstrapServers(cluster))));
         varList.add(buildEnvVar(ENV_VAR_STRIMZI_KAFKA_GC_LOG_ENABLED, String.valueOf(gcLoggingEnabled)));
+        varList.add(buildEnvVar(ENV_VAR_CLUSTER_NAME, cluster));
 
         heapOptions(varList, 1.0, 0L);
         jvmPerformanceOptions(varList);
@@ -383,7 +385,6 @@ public class CruiseControl extends AbstractModel {
         if (configuration != null && !configuration.getConfiguration().isEmpty()) {
             varList.add(buildEnvVar(ENV_VAR_CRUISE_CONTROL_CONFIGURATION, configuration.getConfiguration()));
         }
-
         addContainerEnvsToExistingEnvs(varList, templateCruiseControlContainerEnvVars);
 
         return varList;
