@@ -77,8 +77,6 @@ public class CruiseControlConfiguration extends AbstractConfiguration {
         CC_DEFAULT_PROPERTIES_MAP.put("broker.metrics.window.ms", "300000");
         CC_DEFAULT_PROPERTIES_MAP.put("num.broker.metrics.windows", "20");
         CC_DEFAULT_PROPERTIES_MAP.put("completed.user.task.retention.time.ms", "86400000");
-        CC_DEFAULT_PROPERTIES_MAP.put("partition.metric.sample.store.topic", "__KafkaCruiseControlPartitionMetricSamples");
-        CC_DEFAULT_PROPERTIES_MAP.put("broker.metric.sample.store.topic", "__KafkaCruiseControlModelTrainingSamples");
         CC_DEFAULT_PROPERTIES_MAP.put("default.goals", DEFAULT_GOALS);
         CC_DEFAULT_PROPERTIES_MAP.put("goals", DEFAULT_GOAL_PRIORITY);
 
