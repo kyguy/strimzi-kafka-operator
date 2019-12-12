@@ -53,6 +53,8 @@ public class CruiseControl extends AbstractModel {
 
     private static final Logger log = LogManager.getLogger(KafkaAssemblyOperator.class.getName());
 
+    public static final String ENV_VAR_CRUISE_CONTROL_CONFIGURATION = "CRUISE_CONTROL_CONFIGURATION";
+
     protected static final String TLS_SIDECAR_NAME = "tls-sidecar";
     protected static final String TLS_SIDECAR_CC_CERTS_VOLUME_NAME = "cc-certs";
     protected static final String TLS_SIDECAR_CC_CERTS_VOLUME_MOUNT = "/etc/tls-sidecar/cc-certs/";
@@ -129,6 +131,8 @@ public class CruiseControl extends AbstractModel {
 
         CruiseControlSpec spec  = kafkaAssembly.getSpec().getCruiseControl();
 
+        cruiseControl = updateConfiguration(spec, cruiseControl);
+
         if (spec != null) {
             cruiseControl.isDeployed = true;
 
@@ -173,23 +177,6 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.setGcLoggingEnabled(spec.getJvmOptions() == null ? DEFAULT_JVM_GC_LOGGING_ENABLED : spec.getJvmOptions().isGcLoggingEnabled());
             cruiseControl.setJvmOptions(spec.getJvmOptions());
 
-            // TODO: Cruise Control configuration generation
-            //CruiseControlConfiguration configuration = new CruiseControlConfiguration(spec.getConfig().entrySet());
-            /*List<String> errorsInConfig = configuration.validate(versions.version(spec.getVersion()));
-            if (!errorsInConfig.isEmpty()) {
-                for (String error : errorsInConfig) {
-                    log.warn("Kafka {}/{} has invalid spec.cruisecontrol.config: {}",
-                            kafkaAssembly.getMetadata().getNamespace(),
-                            kafkaAssembly.getMetadata().getName(),
-                            error);
-                }
-                throw new InvalidResourceException("Kafka " +
-                        kafkaAssembly.getMetadata().getNamespace() + "/" + kafkaAssembly.getMetadata().getName() +
-                        " has invalid spec.cruisecontrol.config: " +
-                        String.join(", ", errorsInConfig));
-            }*/
-            //cruiseControl.setConfiguration(configuration);
-
             cruiseControl.setUserAffinity(affinity(spec));
             cruiseControl.setResources(spec.getResources());
             cruiseControl.setTolerations(tolerations(spec));
@@ -199,6 +186,17 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.isDeployed = false;
         }
 
+        return cruiseControl;
+    }
+
+    public static CruiseControl updateConfiguration(CruiseControlSpec spec, CruiseControl cruiseControl) {
+        CruiseControlConfiguration configuration = new CruiseControlConfiguration(spec.getConfig().entrySet());
+        for (String key : CruiseControlConfiguration.CC_DEFAULT_PROPERTIES_MAP.keySet()) {
+            if (configuration.getConfigOption(key) == null) {
+                configuration.setConfigOption(key, CruiseControlConfiguration.CC_DEFAULT_PROPERTIES_MAP.get(key));
+            }
+        }
+        cruiseControl.setConfiguration(configuration);
         return cruiseControl;
     }
 
@@ -381,6 +379,10 @@ public class CruiseControl extends AbstractModel {
 
         heapOptions(varList, 1.0, 0L);
         jvmPerformanceOptions(varList);
+
+        if (configuration != null && !configuration.getConfiguration().isEmpty()) {
+            varList.add(buildEnvVar(ENV_VAR_CRUISE_CONTROL_CONFIGURATION, configuration.getConfiguration()));
+        }
 
         addContainerEnvsToExistingEnvs(varList, templateCruiseControlContainerEnvVars);
 
