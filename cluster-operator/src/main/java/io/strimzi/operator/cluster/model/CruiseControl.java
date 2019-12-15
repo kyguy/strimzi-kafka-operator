@@ -67,12 +67,13 @@ public class CruiseControl extends AbstractModel {
     private static final String REST_API_PORT_NAME = "rest-api";
     private static final int DEFAULT_REST_API_PORT = 9090;
     protected static final int DEFAULT_BOOTSTRAP_SERVERS_PORT = 9092;
+    private static final String MIN_INSYNC_REPLICAS = "min.insync.replicas";
+
 
     // Cruise Control configuration keys (EnvVariables)
     protected static final String ENV_VAR_CRUISE_CONTROL_CONFIGURATION = "CRUISE_CONTROL_CONFIGURATION";
     protected static final String ENV_VAR_ZOOKEEPER_CONNECT = "STRIMZI_ZOOKEEPER_CONNECT";
     protected static final String ENV_VAR_STRIMZI_KAFKA_BOOTSTRAP_SERVERS = "STRIMZI_KAFKA_BOOTSTRAP_SERVERS";
-    protected static final String ENV_VAR_MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas";
     protected static final String ENV_VAR_MIN_INSYNC_REPLICAS = "MIN_INSYNC_REPLICAS";
 
 
@@ -155,9 +156,8 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.setTlsSidecar(tlsSidecar);
 
             cruiseControl = updateConfiguration(spec, cruiseControl);
-
             KafkaConfiguration configuration = new KafkaConfiguration(kafkaSpec.getKafka().getConfig().entrySet());
-            cruiseControl.minInsyncReplicas = configuration.getConfigOption(ENV_VAR_MIN_INSYNC_REPLICAS_CONFIG);
+            cruiseControl.minInsyncReplicas = configuration.getConfigOption(MIN_INSYNC_REPLICAS);
 
             if (spec.getReadinessProbe() != null) {
                 cruiseControl.setReadinessProbe(spec.getReadinessProbe());
