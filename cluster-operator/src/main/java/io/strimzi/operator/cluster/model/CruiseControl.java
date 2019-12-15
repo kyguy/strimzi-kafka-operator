@@ -62,7 +62,7 @@ public class CruiseControl extends AbstractModel {
     protected static final int DEFAULT_REPLICAS = 1;
     private TlsSidecar tlsSidecar;
     private String tlsSidecarImage;
-    private String kafkaClusterConfig;
+    private String minInsyncReplicas;
 
     private static final String REST_API_PORT_NAME = "rest-api";
     private static final int DEFAULT_REST_API_PORT = 9090;
@@ -72,7 +72,9 @@ public class CruiseControl extends AbstractModel {
     protected static final String ENV_VAR_CRUISE_CONTROL_CONFIGURATION = "CRUISE_CONTROL_CONFIGURATION";
     protected static final String ENV_VAR_ZOOKEEPER_CONNECT = "STRIMZI_ZOOKEEPER_CONNECT";
     protected static final String ENV_VAR_STRIMZI_KAFKA_BOOTSTRAP_SERVERS = "STRIMZI_KAFKA_BOOTSTRAP_SERVERS";
-    protected static final String ENV_VAR_KAFKA_CLUSTER_CONFIG_VALUES = "KAFKA_CLUSTER_CONFIG_VALUES";
+    protected static final String ENV_VAR_MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas";
+    protected static final String ENV_VAR_MIN_INSYNC_REPLICAS = "MIN_INSYNC_REPLICAS";
+
 
     // Templates
     protected List<ContainerEnvVar> templateCruiseControlContainerEnvVars;
@@ -153,7 +155,9 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.setTlsSidecar(tlsSidecar);
 
             cruiseControl = updateConfiguration(spec, cruiseControl);
-            cruiseControl.kafkaClusterConfig = kafkaSpec.getKafka().getConfig().toString().replace("=", ":");
+
+            KafkaConfiguration configuration = new KafkaConfiguration(kafkaSpec.getKafka().getConfig().entrySet());
+            cruiseControl.minInsyncReplicas = configuration.getConfigOption(ENV_VAR_MIN_INSYNC_REPLICAS_CONFIG);
 
             if (spec.getReadinessProbe() != null) {
                 cruiseControl.setReadinessProbe(spec.getReadinessProbe());
@@ -351,7 +355,7 @@ public class CruiseControl extends AbstractModel {
 
         varList.add(buildEnvVar(ENV_VAR_STRIMZI_KAFKA_BOOTSTRAP_SERVERS, String.valueOf(defaultBootstrapServers(cluster))));
         varList.add(buildEnvVar(ENV_VAR_STRIMZI_KAFKA_GC_LOG_ENABLED, String.valueOf(gcLoggingEnabled)));
-        varList.add(buildEnvVar(ENV_VAR_KAFKA_CLUSTER_CONFIG_VALUES, String.valueOf(kafkaClusterConfig)));
+        varList.add(buildEnvVar(ENV_VAR_MIN_INSYNC_REPLICAS, String.valueOf(minInsyncReplicas)));
 
         heapOptions(varList, 1.0, 0L);
         jvmPerformanceOptions(varList);
