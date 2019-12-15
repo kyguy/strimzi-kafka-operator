@@ -19,9 +19,8 @@ import static java.util.Collections.emptyList;
 public class CruiseControlConfiguration extends AbstractConfiguration {
 
     /**
-     *  The list of goals that will be used by default if no goal list is provided. This list of goal
-     *  will also be used for proposal pre-computation. If default.goals is not specified, it will
-     *  be default to goals config.
+     * A list of case insensitive goals that Cruise Control supports in the order of priority.
+     * The high priority goals will be executed first.
      */
     private static final String DEFAULT_GOALS = "com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal," +
         "com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal," +
@@ -39,29 +38,7 @@ public class CruiseControlConfiguration extends AbstractConfiguration {
         "com.linkedin.kafka.cruisecontrol.analyzer.goals.LeaderReplicaDistributionGoal," +
         "com.linkedin.kafka.cruisecontrol.analyzer.goals.LeaderBytesInDistributionGoal";
 
-    /**
-     * A list of case insensitive goals that Cruise Control supports in the order of priority.
-     * The high priority goals will be executed first.
-     */
-    private static final String DEFAULT_GOAL_PRIORITY = "com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkInboundCapacityGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkOutboundCapacityGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.CpuCapacityGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaDistributionGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.PotentialNwOutGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskUsageDistributionGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkInboundUsageDistributionGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkOutboundUsageDistributionGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.CpuUsageDistributionGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.TopicReplicaDistributionGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.LeaderReplicaDistributionGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.LeaderBytesInDistributionGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.kafkaassigner.KafkaAssignerDiskUsageDistributionGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.kafkaassigner.KafkaAssignerEvenRackAwareGoal," +
-        "com.linkedin.kafka.cruisecontrol.analyzer.goals.PreferredLeaderElectionGoal";
-
+    private static final String DEFAULT_GOAL_PRIORITY = DEFAULT_GOALS;
    /*
     * Map containing default values for required configuration properties
     */

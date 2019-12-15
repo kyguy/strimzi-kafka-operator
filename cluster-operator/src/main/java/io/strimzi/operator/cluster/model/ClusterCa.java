@@ -119,7 +119,7 @@ public class ClusterCa extends Ca {
     }
 
     public Secret cruiseControlSecret() {
-        return kafkaExporterSecret;
+        return cruiseControlSecret;
     }
 
     public Map<String, CertAndKey> generateZkCerts(Kafka kafka) throws IOException {

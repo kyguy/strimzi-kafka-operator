@@ -361,7 +361,6 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         /* test */ KafkaStatus kafkaStatus = new KafkaStatus();
 
         private Service kafkaService;
-
         private Service kafkaHeadlessService;
         private ConfigMap kafkaMetricsAndLogsConfigMap;
         /* test */ ReconcileResult<StatefulSet> kafkaDiffs;
@@ -1894,15 +1893,12 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
             kafkaCluster.setExternalAddresses(kafkaExternalAddresses);
             StatefulSet kafkaSts = kafkaCluster.generateStatefulSet(pfa.isOpenshift(), imagePullPolicy, imagePullSecrets);
             PodTemplateSpec template = kafkaSts.getSpec().getTemplate();
-
             Annotations.annotations(template).put(
                     Ca.ANNO_STRIMZI_IO_CLUSTER_CA_CERT_GENERATION,
                     String.valueOf(getCaCertGeneration(this.clusterCa)));
             Annotations.annotations(template).put(
                     Ca.ANNO_STRIMZI_IO_CLIENTS_CA_CERT_GENERATION,
                     String.valueOf(getCaCertGeneration(this.clientsCa)));
-
-            kafkaSts = CruiseControl.updateKafkaConfig(kafkaAssembly, kafkaSts);
 
             return withKafkaDiff(kafkaSetOperations.reconcile(namespace, kafkaCluster.getName(), kafkaSts));
         }
@@ -2501,7 +2497,6 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                     entityOperator == null ? null : entityOperator.generateSecret(clusterCa)));
         }
 
-
         private boolean isPodUpToDate(StatefulSet sts, Pod pod) {
             final int stsGeneration = StatefulSetOperator.getStsGeneration(sts);
             final int podGeneration = StatefulSetOperator.getPodGeneration(pod);
@@ -2513,43 +2508,21 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
         }
 
         private final Future<ReconciliationState> getCruiseControlDescription() {
-            Promise<ReconciliationState> promise = Promise.promise();
-            vertx.createSharedWorkerExecutor("kubernetes-ops-pool").<ReconciliationState>executeBlocking(
-                future -> {
-                    try {
-                        CruiseControl cruiseControl = CruiseControl.fromCrd(kafkaAssembly, versions);
+            CruiseControl cruiseControl = CruiseControl.fromCrd(kafkaAssembly, versions);
+            if (cruiseControl != null) {
+                ConfigMap logAndMetricsConfigMap = cruiseControl.generateMetricsAndLogConfigMap(
+                        cruiseControl.getLogging() instanceof ExternalLogging ?
+                                configMapOperations.get(kafkaAssembly.getMetadata().getNamespace(), ((ExternalLogging) cruiseControl.getLogging()).getName()) :
+                                null);
+                Map<String, String> annotations = new HashMap<>();
+                annotations.put(CruiseControl.ANNO_STRIMZI_IO_LOGGING, logAndMetricsConfigMap.getData().get(ANCILLARY_CM_KEY_LOG_CONFIG));
 
-                        if (cruiseControl != null) {
-                            ConfigMap logAndMetricsConfigMap = cruiseControl.generateMetricsAndLogConfigMap(
-                                    cruiseControl.getLogging() instanceof ExternalLogging ?
-                                            configMapOperations.get(kafkaAssembly.getMetadata().getNamespace(), ((ExternalLogging) cruiseControl.getLogging()).getName()) :
-                                            null);
+                this.cruiseControlMetricsAndLogsConfigMap = logAndMetricsConfigMap;
+                this.cruiseControl = cruiseControl;
 
-                            String configAnnotation = "";
-                            if (logAndMetricsConfigMap != null) {
-                                configAnnotation += logAndMetricsConfigMap.getData().get(ANCILLARY_CM_KEY_LOG_CONFIG);
-                            }
-                            Map<String, String> annotations = new HashMap<>();
-                            annotations.put(CruiseControl.ANNO_STRIMZI_IO_LOGGING, configAnnotation);
-
-                            this.cruiseControlMetricsAndLogsConfigMap = logAndMetricsConfigMap;
-                            this.cruiseControl = cruiseControl;
-                            this.ccDeployment = cruiseControl.generateDeployment(annotations, pfa.isOpenshift(), imagePullPolicy, imagePullSecrets);
-                        }
-                        future.complete(this);
-                    } catch (Throwable e) {
-                        future.fail(e);
-                    }
-                }, true,
-                res -> {
-                    if (res.succeeded()) {
-                        promise.complete(res.result());
-                    } else {
-                        promise.fail(res.cause());
-                    }
-                }
-            );
-            return promise.future();
+                this.ccDeployment = cruiseControl.generateDeployment(annotations, pfa.isOpenshift(), imagePullPolicy, imagePullSecrets);
+            }
+            return withVoid(Future.succeededFuture());
         }
 
         Future<ReconciliationState> cruiseControlServiceAccount() {
