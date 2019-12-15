@@ -130,7 +130,7 @@ public class CruiseControl extends AbstractModel {
         if (spec != null) {
             cruiseControl.isDeployed = true;
 
-            cruiseControl.setReplicas(spec.getReplicas() > 0 ? spec.getReplicas() : DEFAULT_REPLICAS);
+            cruiseControl.setReplicas(spec.getReplicas() > -1 ? spec.getReplicas() : DEFAULT_REPLICAS);
             String image = spec.getImage();
             if (image == null) {
                 image = System.getenv().get(ClusterOperatorConfig.STRIMZI_DEFAULT_CRUISE_CONTROL_IMAGE);
