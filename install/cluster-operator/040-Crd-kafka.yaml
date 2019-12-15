@@ -3715,6 +3715,8 @@ spec:
                                 type: string
                 version:
                   type: string
+              required:
+              - replicas
             kafkaExporter:
               type: object
               properties:
