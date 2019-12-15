@@ -127,7 +127,7 @@ public class KafkaSpec implements UnknownPropertyPreserving, Serializable {
         this.kafkaExporter = kafkaExporter;
     }
 
-    @Description("Configuration of the Cruise Control.")
+    @Description("Configuration of Cruise Control.")
     public CruiseControlSpec getCruiseControl() {
         return cruiseControl;
     }

@@ -21,22 +21,16 @@ cat <<EOF > $CC_CAPACITY_FILE
 EOF
 
 # Generate cluster config
-# TODO: Add Kafka configurations here like "min.insync.replicas" for CC reporting
 cat <<EOF > $CC_CLUSTER_CONFIG_FILE
-{
-  "an.example.cluster.config": false
-}
+$KAFKA_CLUSTER_CONFIG_VALUES
 EOF
-
-CC_METRIC_SAMPLE_TOPIC_NAME="${CLUSTER_NAME}__KafkaCruiseControlPartitionMetricSamples"
-CC_TRAINING_SAMPLE_TOPIC_NAME="${CLUSTER_NAME}__KafkaCruiseControlModelTrainingSamples"
 
 # Write the config file
 cat <<EOF
 bootstrap.servers=$STRIMZI_KAFKA_BOOTSTRAP_SERVERS
 zookeeper.connect=localhost:2181
-partition.metric.sample.store.topic=$CC_METRIC_SAMPLE_TOPIC_NAME
-broker.metric.sample.store.topic=$CC_TRAINING_SAMPLE_TOPIC_NAME
+partition.metric.sample.store.topic=__KafkaCruiseControlPartitionMetricSamples
+broker.metric.sample.store.topic=__KafkaCruiseControlModelTrainingSamples
 capacity.config.file=$CC_CAPACITY_FILE
 cluster.configs.file=$CC_CLUSTER_CONFIG_FILE
 ${CRUISE_CONTROL_CONFIGURATION}

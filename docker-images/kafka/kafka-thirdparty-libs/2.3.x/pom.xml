@@ -15,12 +15,6 @@
         </license>
     </licenses>
 
-    <repositories>
-      <repository>
-        <id>jcenter</id>
-          <url>https://jcenter.bintray.com/</url>
-      </repository>
-    </repositories>
 
     <properties>
         <strimzi-oauth-callback.version>0.1.0</strimzi-oauth-callback.version>

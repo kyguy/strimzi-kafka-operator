@@ -47,12 +47,11 @@ public class CruiseControlSpec implements UnknownPropertyPreserving, Serializabl
     private JvmOptions jvmOptions;
     private Logging logging;
     private CruiseControlTemplate template;
+    private Map<String, Object> config = new HashMap<>(0);
     private Map<String, Object> additionalProperties = new HashMap<>(0);
 
-    private Map<String, Object> config = new HashMap<>(0);
-
     @Description("The number of pods in the `Deployment`.")
-    @Minimum(1)
+    @Minimum(0)
     public int getReplicas() {
         return replicas;
     }

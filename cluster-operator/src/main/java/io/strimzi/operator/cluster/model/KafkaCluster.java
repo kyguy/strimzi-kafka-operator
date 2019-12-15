@@ -49,12 +49,14 @@ import io.fabric8.openshift.api.model.Route;
 import io.fabric8.openshift.api.model.RouteBuilder;
 import io.strimzi.api.kafka.model.CertAndKeySecretSource;
 import io.strimzi.api.kafka.model.ContainerEnvVar;
+import io.strimzi.api.kafka.model.CruiseControlSpec;
 import io.strimzi.api.kafka.model.InlineLogging;
 import io.strimzi.api.kafka.model.Kafka;
 import io.strimzi.api.kafka.model.KafkaAuthorization;
 import io.strimzi.api.kafka.model.KafkaAuthorizationSimple;
 import io.strimzi.api.kafka.model.KafkaClusterSpec;
 import io.strimzi.api.kafka.model.KafkaResources;
+import io.strimzi.api.kafka.model.KafkaSpec;
 import io.strimzi.api.kafka.model.Logging;
 import io.strimzi.api.kafka.model.Probe;
 import io.strimzi.api.kafka.model.ProbeBuilder;
@@ -89,10 +91,10 @@ import io.strimzi.operator.cluster.ClusterOperatorConfig;
 import io.strimzi.operator.common.Annotations;
 import io.strimzi.operator.common.PasswordGenerator;
 import io.strimzi.operator.common.model.Labels;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -101,6 +103,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static io.strimzi.operator.cluster.model.CruiseControl.CRUISE_CONTROL_METRIC_REPORTER;
 
 @SuppressWarnings("checkstyle:ClassDataAbstractionCoupling")
 public class KafkaCluster extends AbstractModel {
@@ -182,6 +186,8 @@ public class KafkaCluster extends AbstractModel {
     protected static final String TLS_SIDECAR_CLUSTER_CA_CERTS_VOLUME_MOUNT = "/etc/tls-sidecar/cluster-ca-certs/";
 
     private static final String NAME_SUFFIX = "-kafka";
+
+    private static final String KAFKA_METRIC_REPORTERS_CONFIG_FIELD = "metric.reporters";
 
     private static final String KAFKA_JMX_SECRET_SUFFIX = NAME_SUFFIX + "-jmx";
     private static final String SECRET_JMX_USERNAME_KEY = "jmx-username";
@@ -394,7 +400,8 @@ public class KafkaCluster extends AbstractModel {
 
         result.setOwnerReference(kafkaAssembly);
 
-        KafkaClusterSpec kafkaClusterSpec = kafkaAssembly.getSpec().getKafka();
+        KafkaSpec kafkaSpec = kafkaAssembly.getSpec();
+        KafkaClusterSpec kafkaClusterSpec = kafkaSpec.getKafka();
 
         result.setReplicas(kafkaClusterSpec.getReplicas());
 
@@ -429,6 +436,20 @@ public class KafkaCluster extends AbstractModel {
         }
 
         KafkaConfiguration configuration = new KafkaConfiguration(kafkaClusterSpec.getConfig().entrySet());
+        CruiseControlSpec cruiseControlSpec  = kafkaSpec.getCruiseControl();
+
+        String metricReporters =  configuration.getConfigOption(KAFKA_METRIC_REPORTERS_CONFIG_FIELD);
+        Set<String> metricReporterList = new HashSet<>();
+        if (metricReporters != null) {
+            metricReporterList = new HashSet<String>(Arrays.asList(configuration.getConfigOption(KAFKA_METRIC_REPORTERS_CONFIG_FIELD).split(",")));
+        }
+        if (cruiseControlSpec != null) {
+            metricReporterList.add(CRUISE_CONTROL_METRIC_REPORTER);
+        } else {
+            metricReporterList.remove(CRUISE_CONTROL_METRIC_REPORTER);
+        }
+        configuration.setConfigOption(KAFKA_METRIC_REPORTERS_CONFIG_FIELD, String.join(",", metricReporterList));
+
         List<String> errorsInConfig = configuration.validate(versions.version(kafkaClusterSpec.getVersion()));
         if (!errorsInConfig.isEmpty()) {
             for (String error : errorsInConfig) {

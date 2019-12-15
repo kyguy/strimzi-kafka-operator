@@ -22,7 +22,6 @@ import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentStrategy;
 import io.fabric8.kubernetes.api.model.apps.DeploymentStrategyBuilder;
 import io.fabric8.kubernetes.api.model.apps.RollingUpdateDeploymentBuilder;
-import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.policy.PodDisruptionBudget;
 import io.strimzi.api.kafka.model.ContainerEnvVar;
 import io.strimzi.api.kafka.model.CruiseControlResources;
@@ -32,11 +31,11 @@ import io.strimzi.api.kafka.model.InlineLogging;
 import io.strimzi.api.kafka.model.Kafka;
 import io.strimzi.api.kafka.model.KafkaClusterSpec;
 import io.strimzi.api.kafka.model.KafkaResources;
+import io.strimzi.api.kafka.model.KafkaSpec;
 import io.strimzi.api.kafka.model.Logging;
 import io.strimzi.api.kafka.model.TlsSidecar;
 import io.strimzi.api.kafka.model.template.CruiseControlTemplate;
 import io.strimzi.operator.cluster.ClusterOperatorConfig;
-import io.strimzi.operator.cluster.operator.assembly.KafkaAssemblyOperator;
 import io.strimzi.operator.common.Annotations;
 import io.strimzi.operator.common.model.Labels;
 import java.util.ArrayList;
@@ -44,17 +43,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import static io.strimzi.operator.cluster.model.KafkaCluster.ENV_VAR_KAFKA_CONFIGURATION;
 
 public class CruiseControl extends AbstractModel {
 
-    private static final Logger log = LogManager.getLogger(KafkaAssemblyOperator.class.getName());
-
-    public static final String ENV_VAR_CRUISE_CONTROL_CONFIGURATION = "CRUISE_CONTROL_CONFIGURATION";
-    public static final String ENV_VAR_CLUSTER_NAME = "CLUSTER_NAME";
+    public static final String CRUISE_CONTROL_METRIC_REPORTER = "com.linkedin.kafka.cruisecontrol.metricsreporter.CruiseControlMetricsReporter";
 
     protected static final String TLS_SIDECAR_NAME = "tls-sidecar";
     protected static final String TLS_SIDECAR_CC_CERTS_VOLUME_NAME = "cc-certs";
@@ -70,15 +62,17 @@ public class CruiseControl extends AbstractModel {
     protected static final int DEFAULT_REPLICAS = 1;
     private TlsSidecar tlsSidecar;
     private String tlsSidecarImage;
+    private String kafkaClusterConfig;
 
-    protected static final String CRUISE_CONTROL_PORT_NAME = "http-9090";
-    protected static final int CRUISE_CONTROL_PORT = 9090;
+    private static final String REST_API_PORT_NAME = "rest-api";
+    private static final int DEFAULT_REST_API_PORT = 9090;
     protected static final int DEFAULT_BOOTSTRAP_SERVERS_PORT = 9092;
 
     // Cruise Control configuration keys (EnvVariables)
-    protected static final String ENV_VAR_PREFIX = "CRUISE_CONTROL_";
+    protected static final String ENV_VAR_CRUISE_CONTROL_CONFIGURATION = "CRUISE_CONTROL_CONFIGURATION";
     protected static final String ENV_VAR_ZOOKEEPER_CONNECT = "STRIMZI_ZOOKEEPER_CONNECT";
     protected static final String ENV_VAR_STRIMZI_KAFKA_BOOTSTRAP_SERVERS = "STRIMZI_KAFKA_BOOTSTRAP_SERVERS";
+    protected static final String ENV_VAR_KAFKA_CLUSTER_CONFIG_VALUES = "KAFKA_CLUSTER_CONFIG_VALUES";
 
     // Templates
     protected List<ContainerEnvVar> templateCruiseControlContainerEnvVars;
@@ -130,20 +124,16 @@ public class CruiseControl extends AbstractModel {
                     kafkaAssembly.getMetadata().getName(),
                     Labels.fromResource(kafkaAssembly).withKind(kafkaAssembly.getKind()));
 
-        CruiseControlSpec spec  = kafkaAssembly.getSpec().getCruiseControl();
+        KafkaSpec kafkaSpec  = kafkaAssembly.getSpec();
+        CruiseControlSpec spec  = kafkaSpec.getCruiseControl();
 
         if (spec != null) {
             cruiseControl.isDeployed = true;
 
-            cruiseControl.setReplicas(spec != null && spec.getReplicas() > 0 ? spec.getReplicas() : DEFAULT_REPLICAS);
+            cruiseControl.setReplicas(spec.getReplicas() > 0 ? spec.getReplicas() : DEFAULT_REPLICAS);
             String image = spec.getImage();
             if (image == null) {
                 image = System.getenv().get(ClusterOperatorConfig.STRIMZI_DEFAULT_CRUISE_CONTROL_IMAGE);
-            }
-            if (image == null) {
-                KafkaClusterSpec kafkaClusterSpec = kafkaAssembly.getSpec().getKafka();
-                image = versions.kafkaImage(kafkaClusterSpec != null ? kafkaClusterSpec.getImage() : null,
-                        kafkaClusterSpec != null ? kafkaClusterSpec.getVersion() : null);
             }
             cruiseControl.setImage(image);
 
@@ -163,6 +153,7 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.setTlsSidecar(tlsSidecar);
 
             cruiseControl = updateConfiguration(spec, cruiseControl);
+            cruiseControl.kafkaClusterConfig = kafkaSpec.getKafka().getConfig().toString().replace("=", ":");
 
             if (spec.getReadinessProbe() != null) {
                 cruiseControl.setReadinessProbe(spec.getReadinessProbe());
@@ -238,23 +229,6 @@ public class CruiseControl extends AbstractModel {
         return null;
     }
 
-    public static StatefulSet updateKafkaConfig(Kafka kafkaAssembly, StatefulSet kafkaSs) {
-        Map<String, String> env = ModelUtils.getKafkaContainerEnv(kafkaSs);
-        KafkaConfiguration currentKafkaConfig = KafkaConfiguration.unvalidated(env.get(ENV_VAR_KAFKA_CONFIGURATION));
-
-        CruiseControlSpec cruiseControlSpec  = kafkaAssembly.getSpec().getCruiseControl();
-
-        if (cruiseControlSpec != null) {
-            currentKafkaConfig.setConfigOption("metric.reporters", "com.linkedin.kafka.cruisecontrol.metricsreporter.CruiseControlMetricsReporter");
-        } else {
-            currentKafkaConfig.removeConfigOption("metric.reporters");
-        }
-        env.put(ENV_VAR_KAFKA_CONFIGURATION, currentKafkaConfig.getConfiguration());
-        kafkaSs.getSpec().getTemplate().getSpec().getContainers().get(0).setEnv(ModelUtils.envAsList(env));
-
-        return kafkaSs;
-    }
-
     public static String cruiseControlName(String cluster) {
         return KafkaResources.cruiseControlDeploymentName(cluster);
     }
@@ -269,9 +243,9 @@ public class CruiseControl extends AbstractModel {
         }
 
         List<ServicePort> ports = new ArrayList<>(1);
-        ports.add(createServicePort(CRUISE_CONTROL_PORT_NAME, CRUISE_CONTROL_PORT, CRUISE_CONTROL_PORT, "TCP"));
+        ports.add(createServicePort(REST_API_PORT_NAME, DEFAULT_REST_API_PORT, DEFAULT_REST_API_PORT, "TCP"));
         Map<String, String> annotations = new HashMap<String, String>(1);
-        annotations.put("cruisecontrol/port", String.valueOf(CRUISE_CONTROL_PORT));
+        annotations.put("cruisecontrol/port", String.valueOf(DEFAULT_REST_API_PORT));
 
         return createService("ClusterIP", ports, annotations);
     }
@@ -377,7 +351,7 @@ public class CruiseControl extends AbstractModel {
 
         varList.add(buildEnvVar(ENV_VAR_STRIMZI_KAFKA_BOOTSTRAP_SERVERS, String.valueOf(defaultBootstrapServers(cluster))));
         varList.add(buildEnvVar(ENV_VAR_STRIMZI_KAFKA_GC_LOG_ENABLED, String.valueOf(gcLoggingEnabled)));
-        varList.add(buildEnvVar(ENV_VAR_CLUSTER_NAME, cluster));
+        varList.add(buildEnvVar(ENV_VAR_KAFKA_CLUSTER_CONFIG_VALUES, String.valueOf(kafkaClusterConfig)));
 
         heapOptions(varList, 1.0, 0L);
         jvmPerformanceOptions(varList);

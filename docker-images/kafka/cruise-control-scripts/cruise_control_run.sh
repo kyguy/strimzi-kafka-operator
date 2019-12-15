@@ -48,8 +48,6 @@ echo "Starting Kafka with configuration:"
 $CRUISE_CONTROL_HOME/cruise_control_config_generator.sh | tee /tmp/cruisecontrol.properties
 echo ""
 
-CRUISE_CONTROL_CONFIG=$CRUISE_CONTROL_HOME/config/cruisecontrol.properties
-
 # JVM performance options
 if [ -z "$KAFKA_JVM_PERFORMANCE_OPTS" ]; then
   KAFKA_JVM_PERFORMANCE_OPTS="-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+DisableExplicitGC -Djava.awt.headless=true"
