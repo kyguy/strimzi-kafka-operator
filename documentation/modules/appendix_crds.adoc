@@ -1273,8 +1273,6 @@ Used in: xref:type-KafkaSpec-{context}[`KafkaSpec`]
 |xref:type-TlsSidecar-{context}[`TlsSidecar`]
 |template        1.2+<.<|Template to specify how Cruise Control resources, `Deployments` and `Pods`, are generated.
 |xref:type-CruiseControlTemplate-{context}[`CruiseControlTemplate`]
-|version         1.2+<.<|The Cruise Control version. Defaults to {DefaultKafkaVersion}.
-|string
 |====
 
 [id='type-CruiseControlTemplate-{context}']

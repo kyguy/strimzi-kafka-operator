@@ -39,7 +39,6 @@ public class CruiseControlSpec implements UnknownPropertyPreserving, Serializabl
     public static final String FORBIDDEN_PREFIX_EXCEPTIONS = "";
 
     private int replicas;
-    private String version;
     private String image;
     private TlsSidecar tlsSidecar;
     private ResourceRequirements resources;
@@ -60,15 +59,6 @@ public class CruiseControlSpec implements UnknownPropertyPreserving, Serializabl
 
     public void setReplicas(int replicas) {
         this.replicas = replicas;
-    }
-
-    @Description("The Cruise Control version. Defaults to {DefaultKafkaVersion}.")
-    public String getVersion() {
-        return version;
-    }
-
-    public void setVersion(String version) {
-        this.version = version;
     }
 
     @Description("The docker image for the pods.")
