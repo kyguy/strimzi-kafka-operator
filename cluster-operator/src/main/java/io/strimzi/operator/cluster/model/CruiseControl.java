@@ -62,7 +62,7 @@ public class CruiseControl extends AbstractModel {
     protected static final int DEFAULT_REPLICAS = 1;
     private TlsSidecar tlsSidecar;
     private String tlsSidecarImage;
-    private String minInsyncReplicas;
+    private String minInsyncReplicas = "1";
 
     private static final String REST_API_PORT_NAME = "rest-api";
     private static final int DEFAULT_REST_API_PORT = 9090;
@@ -97,7 +97,6 @@ public class CruiseControl extends AbstractModel {
         this.serviceName = CruiseControlResources.serviceName(cluster);
         this.ancillaryConfigName = metricAndLogConfigsName(cluster);
         this.replicas = DEFAULT_REPLICAS;
-
         this.mountPath = "/var/lib/kafka";
         this.logAndMetricsConfigVolumeName = "cruise-control-logging";
         this.logAndMetricsConfigMountPath = "/opt/cruise-control/custom-config/";
@@ -157,7 +156,9 @@ public class CruiseControl extends AbstractModel {
 
             cruiseControl = updateConfiguration(spec, cruiseControl);
             KafkaConfiguration configuration = new KafkaConfiguration(kafkaSpec.getKafka().getConfig().entrySet());
-            cruiseControl.minInsyncReplicas = configuration.getConfigOption(MIN_INSYNC_REPLICAS);
+            if (configuration.getConfigOption(MIN_INSYNC_REPLICAS) != null) {
+                cruiseControl.minInsyncReplicas = configuration.getConfigOption(MIN_INSYNC_REPLICAS);
+            }
 
             if (spec.getReadinessProbe() != null) {
                 cruiseControl.setReadinessProbe(spec.getReadinessProbe());

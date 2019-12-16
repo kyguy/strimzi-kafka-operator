@@ -3,10 +3,6 @@
 CC_CAPACITY_FILE="/tmp/capacity.json"
 CC_CLUSTER_CONFIG_FILE="/tmp/clusterConfig.json"
 
-if [ -z "$MIN_INSYNC_REPLICAS" ]; then
-  MIN_INSYNC_REPLICAS="1"
-fi
-
 # Generate capacity file
 # TODO: Update DISK value based on volume sizes
 cat <<EOF > $CC_CAPACITY_FILE
