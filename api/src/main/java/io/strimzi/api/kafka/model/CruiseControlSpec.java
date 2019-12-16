@@ -5,6 +5,7 @@
 package io.strimzi.api.kafka.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import io.strimzi.api.kafka.model.template.CruiseControlTemplate;
@@ -47,12 +48,12 @@ public class CruiseControlSpec implements UnknownPropertyPreserving, Serializabl
     private JvmOptions jvmOptions;
     private Logging logging;
     private CruiseControlTemplate template;
+    private Map<String, Object> config = new HashMap<>(0);
     private Map<String, Object> additionalProperties = new HashMap<>(0);
 
-    private Map<String, Object> config = new HashMap<>(0);
-
     @Description("The number of pods in the `Deployment`.")
-    @Minimum(1)
+    @Minimum(0)
+    @JsonProperty(required = true)
     public int getReplicas() {
         return replicas;
     }

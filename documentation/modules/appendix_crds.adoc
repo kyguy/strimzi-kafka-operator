@@ -35,7 +35,7 @@ Used in: xref:type-Kafka-{context}[`Kafka`]
 |xref:type-CertificateAuthority-{context}[`CertificateAuthority`]
 |clientsCa               1.2+<.<|Configuration of the clients certificate authority.
 |xref:type-CertificateAuthority-{context}[`CertificateAuthority`]
-|cruiseControl           1.2+<.<|Configuration of the Cruise Control.
+|cruiseControl           1.2+<.<|Configuration of Cruise Control.
 |xref:type-CruiseControlSpec-{context}[`CruiseControlSpec`]
 |kafkaExporter           1.2+<.<|Configuration of the Kafka Exporter. Kafka Exporter can provide additional metrics, for example lag of consumer group at topic/partition.
 |xref:type-KafkaExporterSpec-{context}[`KafkaExporterSpec`]

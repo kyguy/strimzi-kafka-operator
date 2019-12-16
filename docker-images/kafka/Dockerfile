@@ -84,6 +84,4 @@ RUN echo "${TINI_SHA256} */usr/bin/tini" | sha256sum -c \
 
 WORKDIR $KAFKA_HOME
 
-RUN chmod -R 774 $KAFKA_HOME
-
 USER 1001

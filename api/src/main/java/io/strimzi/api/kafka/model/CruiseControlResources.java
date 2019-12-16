@@ -6,7 +6,7 @@ package io.strimzi.api.kafka.model;
 
 /**
  * Encapsulates the naming scheme used for the resources which the Cluster Operator manages for a
- * {@code KafkaMirrorMaker} cluster.
+ * {@code CruiseControl} cluster.
  */
 public class CruiseControlResources {
 
@@ -34,7 +34,7 @@ public class CruiseControlResources {
      * @return The name of the corresponding Cruise Control {@code Service}.
      */
     public static String serviceName(String clusterName) {
-        return clusterName + "-cruise-control";
+        return deploymentName(clusterName);
     }
 
     /**

@@ -17,12 +17,6 @@ export STRIMZI_TRUSTSTORE_PASSWORD=$CERTS_STORE_PASSWORD
 export STRIMZI_KEYSTORE_LOCATION=/tmp/cruise-control/replication.keystore.p12
 export STRIMZI_KEYSTORE_PASSWORD=$CERTS_STORE_PASSWORD
 
-# Log directory to use
-if [ "x$LOG_DIR" = "x" ]; then
-  export LOG_DIR="/tmp"
-fi
-
-echo "$KAFKA_LOG4J_OPTS"
 if [ -z "$KAFKA_LOG4J_OPTS" ]; then
   export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:$CRUISE_CONTROL_HOME/custom-config/log4j.properties"
 fi
@@ -47,8 +41,6 @@ fi
 echo "Starting Kafka with configuration:"
 $CRUISE_CONTROL_HOME/cruise_control_config_generator.sh | tee /tmp/cruisecontrol.properties
 echo ""
-
-CRUISE_CONTROL_CONFIG=$CRUISE_CONTROL_HOME/config/cruisecontrol.properties
 
 # JVM performance options
 if [ -z "$KAFKA_JVM_PERFORMANCE_OPTS" ]; then
