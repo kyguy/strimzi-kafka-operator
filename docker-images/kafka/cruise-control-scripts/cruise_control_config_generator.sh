@@ -36,5 +36,6 @@ broker.metric.sample.store.topic=__KafkaCruiseControlModelTrainingSamples
 capacity.config.file=$CC_CAPACITY_FILE
 cluster.configs.file=$CC_CLUSTER_CONFIG_FILE
 webserver.accesslog.path=/tmp/access.log
+webserver.http.address=$(hostname)
 ${CRUISE_CONTROL_CONFIGURATION}
 EOF

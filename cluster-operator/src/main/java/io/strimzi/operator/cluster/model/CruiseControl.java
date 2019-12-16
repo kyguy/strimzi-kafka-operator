@@ -33,6 +33,8 @@ import io.strimzi.api.kafka.model.KafkaClusterSpec;
 import io.strimzi.api.kafka.model.KafkaResources;
 import io.strimzi.api.kafka.model.KafkaSpec;
 import io.strimzi.api.kafka.model.Logging;
+import io.strimzi.api.kafka.model.Probe;
+import io.strimzi.api.kafka.model.ProbeBuilder;
 import io.strimzi.api.kafka.model.TlsSidecar;
 import io.strimzi.api.kafka.model.template.CruiseControlTemplate;
 import io.strimzi.operator.cluster.ClusterOperatorConfig;
@@ -60,6 +62,11 @@ public class CruiseControl extends AbstractModel {
 
     // Configuration defaults
     protected static final int DEFAULT_REPLICAS = 1;
+    protected static final int DEFAULT_HEALTHCHECK_DELAY = 15;
+    protected static final int DEFAULT_HEALTHCHECK_TIMEOUT = 5;
+    public static final Probe DEFAULT_HEALTHCHECK_OPTIONS = new ProbeBuilder()
+            .withTimeoutSeconds(DEFAULT_HEALTHCHECK_TIMEOUT)
+            .withInitialDelaySeconds(DEFAULT_HEALTHCHECK_DELAY).build();
     private TlsSidecar tlsSidecar;
     private String tlsSidecarImage;
     private String minInsyncReplicas = "1";
@@ -97,6 +104,10 @@ public class CruiseControl extends AbstractModel {
         this.serviceName = CruiseControlResources.serviceName(cluster);
         this.ancillaryConfigName = metricAndLogConfigsName(cluster);
         this.replicas = DEFAULT_REPLICAS;
+        this.readinessPath = "/kafkacruisecontrol/state";
+        this.livenessPath = "/kafkacruisecontrol/state";
+        this.livenessProbeOptions = DEFAULT_HEALTHCHECK_OPTIONS;
+        this.readinessProbeOptions = DEFAULT_HEALTHCHECK_OPTIONS;
         this.mountPath = "/var/lib/kafka";
         this.logAndMetricsConfigVolumeName = "cruise-control-logging";
         this.logAndMetricsConfigMountPath = "/opt/cruise-control/custom-config/";
@@ -257,6 +268,9 @@ public class CruiseControl extends AbstractModel {
 
     protected List<ContainerPort> getContainerPortList() {
         List<ContainerPort> portList = new ArrayList<>(1);
+
+        portList.add(createContainerPort(REST_API_PORT_NAME, DEFAULT_REST_API_PORT, "TCP"));
+
         if (isMetricsEnabled) {
             portList.add(createContainerPort(METRICS_PORT_NAME, METRICS_PORT, "TCP"));
         }
@@ -309,7 +323,6 @@ public class CruiseControl extends AbstractModel {
 
     @Override
     protected List<Container> getContainers(ImagePullPolicy imagePullPolicy) {
-        //TODO: Add liveness and readiness probes
         List<Container> containers = new ArrayList<>();
         Container container = new ContainerBuilder()
                 .withName(name)
@@ -317,6 +330,8 @@ public class CruiseControl extends AbstractModel {
                 .withCommand("/opt/cruise-control/cruise_control_run.sh")
                 .withEnv(getEnvVars())
                 .withPorts(getContainerPortList())
+                .withLivenessProbe(ModelUtils.createHttpProbe(livenessPath, REST_API_PORT_NAME, livenessProbeOptions))
+                .withReadinessProbe(ModelUtils.createHttpProbe(readinessPath, REST_API_PORT_NAME, readinessProbeOptions))
                 .withResources(getResources())
                 .withVolumeMounts(getVolumeMounts())
                 .withImagePullPolicy(determineImagePullPolicy(imagePullPolicy, getImage()))
