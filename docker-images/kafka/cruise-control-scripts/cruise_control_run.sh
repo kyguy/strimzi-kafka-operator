@@ -2,6 +2,7 @@
 set +x
 
 export CLASSPATH="$CLASSPATH:/opt/cruise-control/libs/*"
+export SCALA_VERSION="2.11.11"
 
 # Generate temporary keystore password
 export CERTS_STORE_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32)
@@ -38,7 +39,7 @@ if [ -z "$KAFKA_HEAP_OPTS" -a -n "${DYNAMIC_HEAP_FRACTION}" ]; then
 fi
 
 # Generate and print the config file
-echo "Starting Kafka with configuration:"
+echo "Starting Cruise Control with configuration:"
 $CRUISE_CONTROL_HOME/cruise_control_config_generator.sh | tee /tmp/cruisecontrol.properties
 echo ""
 
@@ -47,5 +48,5 @@ if [ -z "$KAFKA_JVM_PERFORMANCE_OPTS" ]; then
   KAFKA_JVM_PERFORMANCE_OPTS="-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+DisableExplicitGC -Djava.awt.headless=true"
 fi
 
-# starting Kafka server with final configuration
-exec java $KAFKA_HEAP_OPTS $KAFKA_JVM_PERFORMANCE_OPTS $KAFKA_GC_LOG_OPTS $KAFKA_JMX_OPTS $KAFKA_LOG4J_OPTS -cp $CLASSPATH $KAFKA_OPTS com.linkedin.kafka.cruisecontrol.KafkaCruiseControlMain /tmp/cruisecontrol.properties
+# starting Cruise Control server with final configuration
+exec java ${KAFKA_HEAP_OPTS} ${KAFKA_JVM_PERFORMANCE_OPTS} ${KAFKA_GC_LOG_OPTS} ${KAFKA_JMX_OPTS} ${KAFKA_LOG4J_OPTS} ${KAFKA_OPTS} -classpath ${CLASSPATH} com.linkedin.kafka.cruisecontrol.KafkaCruiseControlMain /tmp/cruisecontrol.properties
