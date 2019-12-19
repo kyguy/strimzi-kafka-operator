@@ -38,7 +38,6 @@ public class CruiseControlConfiguration extends AbstractConfiguration {
         "com.linkedin.kafka.cruisecontrol.analyzer.goals.LeaderReplicaDistributionGoal," +
         "com.linkedin.kafka.cruisecontrol.analyzer.goals.LeaderBytesInDistributionGoal";
 
-    private static final String DEFAULT_GOAL_PRIORITY = DEFAULT_GOALS;
    /*
     * Map containing default values for required configuration properties
     */
@@ -55,7 +54,7 @@ public class CruiseControlConfiguration extends AbstractConfiguration {
         CC_DEFAULT_PROPERTIES_MAP.put("num.broker.metrics.windows", "20");
         CC_DEFAULT_PROPERTIES_MAP.put("completed.user.task.retention.time.ms", "86400000");
         CC_DEFAULT_PROPERTIES_MAP.put("default.goals", DEFAULT_GOALS);
-        CC_DEFAULT_PROPERTIES_MAP.put("goals", DEFAULT_GOAL_PRIORITY);
+        CC_DEFAULT_PROPERTIES_MAP.put("goals", DEFAULT_GOALS);
 
         FORBIDDEN_OPTIONS = asList(CruiseControlSpec.FORBIDDEN_PREFIXES.split(", "));
         EXCEPTIONS = asList(CruiseControlSpec.FORBIDDEN_PREFIX_EXCEPTIONS.split(", "));
