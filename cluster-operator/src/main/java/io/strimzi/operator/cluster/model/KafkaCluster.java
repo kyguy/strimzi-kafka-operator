@@ -444,7 +444,11 @@ public class KafkaCluster extends AbstractModel {
         } else {
             metricReporterList.remove(CRUISE_CONTROL_METRIC_REPORTER);
         }
-        configuration.setConfigOption(KAFKA_METRIC_REPORTERS_CONFIG_FIELD, String.join(",", metricReporterList));
+        if (!metricReporterList.isEmpty()) {
+            configuration.setConfigOption(KAFKA_METRIC_REPORTERS_CONFIG_FIELD, String.join(",", metricReporterList));
+        } else {
+            configuration.removeConfigOption(KAFKA_METRIC_REPORTERS_CONFIG_FIELD);
+        }
 
         List<String> errorsInConfig = configuration.validate(versions.version(kafkaClusterSpec.getVersion()));
         if (!errorsInConfig.isEmpty()) {
