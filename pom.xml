@@ -111,7 +111,6 @@
         <vertx.kafka.client>3.7.1</vertx.kafka.client>
         <okhttp.version>3.12.0</okhttp.version>
         <netty-codec-http.version>4.1.34.Final</netty-codec-http.version>
-        <cruise-control.version>2.0.75</cruise-control.version>
     </properties>
 
     <distributionManagement>
