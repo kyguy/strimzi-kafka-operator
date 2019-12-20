@@ -1,3 +1,7 @@
+/*
+ * Copyright Strimzi authors.
+ * License: Apache License 2.0 (see the file LICENSE or http://apache.org/licenses/LICENSE-2.0.html).
+ */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
 import io.vertx.core.Future;
@@ -8,8 +12,6 @@ public class CruiseControlApiImpl implements CruiseControlApi {
     private final Vertx vertx;
     private final String host;
     private final int port;
-
-    private static final String USER_ID_HEADER = "User-Task-ID";
 
     public CruiseControlApiImpl(Vertx vertx, String host, int port) {
         this.vertx = vertx;
