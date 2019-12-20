@@ -14,13 +14,12 @@ import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.strimzi.api.kafka.model.ContainerEnvVar;
+import io.strimzi.api.kafka.model.CruiseControlResources;
+import io.strimzi.api.kafka.model.CruiseControlSpec;
+import io.strimzi.api.kafka.model.CruiseControlSpecBuilder;
 import io.strimzi.api.kafka.model.InlineLogging;
 import io.strimzi.api.kafka.model.Kafka;
 import io.strimzi.api.kafka.model.KafkaBuilder;
-import io.strimzi.api.kafka.model.KafkaExporterResources;
-import io.strimzi.api.kafka.model.KafkaExporterSpec;
-import io.strimzi.api.kafka.model.KafkaExporterSpecBuilder;
-import io.strimzi.api.kafka.model.KafkaResources;
 import io.strimzi.api.kafka.model.storage.EphemeralStorage;
 import io.strimzi.api.kafka.model.storage.SingleVolumeStorage;
 import io.strimzi.api.kafka.model.storage.Storage;
@@ -32,59 +31,68 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.strimzi.operator.cluster.model.CruiseControlConfiguration.CC_DEFAULT_PROPERTIES_MAP;
 import static java.util.Collections.singletonMap;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-public class KafkaExporterTest {
+
+public class CruiseControlTest {
     private final String namespace = "test";
     private final String cluster = "foo";
-    private final int replicas = 3;
+    private final int replicas = 1;
     private final String image = "my-image:latest";
     private final int healthDelay = 120;
     private final int healthTimeout = 30;
+    private final String minInsyncReplicas = "2";
     private final Map<String, Object> metricsCm = singletonMap("animal", "wombat");
-    private final Map<String, Object> kafkaConfig = singletonMap("foo", "bar");
+    private final Map<String, Object> kafkaConfig = singletonMap(CruiseControl.MIN_INSYNC_REPLICAS, minInsyncReplicas);
     private final Map<String, Object> zooConfig = singletonMap("foo", "bar");
+
+    private final Map<String, Object> ccMapConfig = new HashMap<String, Object>() {{
+            putAll(CC_DEFAULT_PROPERTIES_MAP);
+            put("num.partition.metrics.windows", "2");
+        }};
+    private CruiseControlConfiguration ccConfig =  new CruiseControlConfiguration(ccMapConfig.entrySet());
+
     private final Storage kafkaStorage = new EphemeralStorage();
     private final SingleVolumeStorage zkStorage = new EphemeralStorage();
     private final InlineLogging kafkaLogJson = new InlineLogging();
     private final InlineLogging zooLogJson = new InlineLogging();
-    private final String exporterOperatorLogging = "debug";
     private final String version = KafkaVersionTestUtils.DEFAULT_KAFKA_VERSION;
     private static final KafkaVersion.Lookup VERSIONS = KafkaVersionTestUtils.getKafkaVersionLookup();
+    private final String kafkaHeapOpts = "-Xms" + AbstractModel.DEFAULT_JVM_XMS;
+    private final String ccImage = "my-cruise-control-image";
 
     {
         kafkaLogJson.setLoggers(singletonMap("kafka.root.logger.level", "OFF"));
         zooLogJson.setLoggers(singletonMap("zookeeper.root.logger", "OFF"));
     }
 
-    private final String keImage = "my-exporter-image";
-    private final String groupRegex = "my-group-.*";
-    private final String topicRegex = "my-topic-.*";
-
-    private final KafkaExporterSpec exporterOperator = new KafkaExporterSpecBuilder()
-            .withLogging(exporterOperatorLogging)
-            .withGroupRegex(groupRegex)
-            .withTopicRegex(topicRegex)
-            .withImage(keImage)
-            .withEnableSaramaLogging(true)
+    private final CruiseControlSpec cruiseControlOperator = new CruiseControlSpecBuilder()
+            .withImage(ccImage)
+            .withReplicas(replicas)
+            .withConfig(ccMapConfig)
             .build();
+
     private final Kafka resource =
             new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
                     .editSpec()
                     .editKafka()
                     .withVersion(version)
+                    .withConfig(kafkaConfig)
                     .endKafka()
-                    .withKafkaExporter(exporterOperator)
+                    .withCruiseControl(cruiseControlOperator)
                     .endSpec()
                     .build();
-    private final KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
+
+    private final CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
 
     public void checkOwnerReference(OwnerReference ownerRef, HasMetadata resource)  {
         assertThat(resource.getMetadata().getOwnerReferences().size(), is(1));
@@ -102,106 +110,96 @@ public class KafkaExporterTest {
     }
 
     private Map<String, String> expectedSelectorLabels()    {
-        return Labels.fromMap(expectedLabels()).strimziSelectorLabels().toMap();
+        return Labels.fromMap(expectedLabels()).strimziLabels().toMap();
     }
 
     private Map<String, String> expectedLabels()    {
-        return expectedLabels(KafkaExporterResources.deploymentName(cluster));
+        return expectedLabels(CruiseControlResources.deploymentName(cluster));
     }
 
     private List<EnvVar> getExpectedEnvVars() {
         List<EnvVar> expected = new ArrayList<>();
-        expected.add(new EnvVarBuilder().withName(KafkaExporter.ENV_VAR_KAFKA_EXPORTER_LOGGING).withValue(exporterOperatorLogging).build());
-        expected.add(new EnvVarBuilder().withName(KafkaExporter.ENV_VAR_KAFKA_EXPORTER_KAFKA_VERSION).withValue(version).build());
-        expected.add(new EnvVarBuilder().withName(KafkaExporter.ENV_VAR_KAFKA_EXPORTER_GROUP_REGEX).withValue(groupRegex).build());
-        expected.add(new EnvVarBuilder().withName(KafkaExporter.ENV_VAR_KAFKA_EXPORTER_TOPIC_REGEX).withValue(topicRegex).build());
-        expected.add(new EnvVarBuilder().withName(KafkaExporter.ENV_VAR_KAFKA_EXPORTER_KAFKA_SERVER).withValue("foo-kafka-bootstrap:" + KafkaCluster.REPLICATION_PORT).build());
-        expected.add(new EnvVarBuilder().withName(KafkaExporter.ENV_VAR_KAFKA_EXPORTER_ENABLE_SARAMA).withValue("true").build());
+        expected.add(new EnvVarBuilder().withName(CruiseControl.ENV_VAR_STRIMZI_KAFKA_BOOTSTRAP_SERVERS).withValue(CruiseControl.defaultBootstrapServers(cluster)).build());
+        expected.add(new EnvVarBuilder().withName(KafkaMirrorMakerCluster.ENV_VAR_STRIMZI_KAFKA_GC_LOG_ENABLED).withValue(Boolean.toString(AbstractModel.DEFAULT_JVM_GC_LOGGING_ENABLED)).build());
+        expected.add(new EnvVarBuilder().withName(CruiseControl.ENV_VAR_MIN_INSYNC_REPLICAS).withValue(minInsyncReplicas).build());
+        expected.add(new EnvVarBuilder().withName(KafkaMirrorMakerCluster.ENV_VAR_KAFKA_HEAP_OPTS).withValue(kafkaHeapOpts).build());
+        expected.add(new EnvVarBuilder().withName(CruiseControl.ENV_VAR_CRUISE_CONTROL_CONFIGURATION).withValue(ccConfig.getConfiguration()).build());
+
         return expected;
     }
 
     @Test
-    public void testFromConfigMapDefaultConfig() {
-        Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, null,
-                healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
-                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, new KafkaExporterSpec(), null);
-        KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
-        assertThat(ke.getImage(), is(KafkaVersionTestUtils.DEFAULT_KAFKA_IMAGE));
-        assertThat(ke.logging, is("info"));
-        assertThat(ke.groupRegex, is(".*"));
-        assertThat(ke.topicRegex, is(".*"));
-        assertThat(ke.saramaLoggingEnabled, is(false));
-    }
-
-    @Test
     public void testFromConfigMap() {
-        assertThat(ke.namespace, is(namespace));
-        assertThat(ke.cluster, is(cluster));
-        assertThat(ke.getImage(), is(keImage));
-        assertThat(ke.logging, is("debug"));
-        assertThat(ke.groupRegex, is("my-group-.*"));
-        assertThat(ke.topicRegex, is("my-topic-.*"));
-        assertThat(ke.saramaLoggingEnabled, is(true));
+        assertThat(cc.namespace, is(namespace));
+        assertThat(cc.cluster, is(cluster));
+        assertThat(cc.getImage(), is(ccImage));
     }
 
     @Test
     public void testGenerateDeployment() {
-        Deployment dep = ke.generateDeployment(true, null, null);
+        Deployment dep = cc.generateDeployment(null, true, null, null);
 
         List<Container> containers = dep.getSpec().getTemplate().getSpec().getContainers();
 
-        assertThat(containers.size(), is(1));
+        assertThat(containers.size(), is(2));
 
-        assertThat(dep.getMetadata().getName(), is(KafkaExporterResources.deploymentName(cluster)));
+        assertThat(dep.getMetadata().getName(), is(CruiseControlResources.deploymentName(cluster)));
         assertThat(dep.getMetadata().getNamespace(), is(namespace));
         assertThat(dep.getMetadata().getOwnerReferences().size(), is(1));
-        assertThat(dep.getMetadata().getOwnerReferences().get(0), is(ke.createOwnerReference()));
+        assertThat(dep.getMetadata().getOwnerReferences().get(0), is(cc.createOwnerReference()));
 
-        // checks on the main Exporter container
-        assertThat(containers.get(0).getImage(), is(ke.image));
+        // checks on the main Cruise Control container
+        assertThat(containers.get(0).getImage(), is(cc.image));
         assertThat(containers.get(0).getEnv(), is(getExpectedEnvVars()));
         assertThat(containers.get(0).getPorts().size(), is(1));
-        assertThat(containers.get(0).getPorts().get(0).getName(), is(KafkaExporter.METRICS_PORT_NAME));
+        assertThat(containers.get(0).getPorts().get(0).getName(), is(CruiseControl.REST_API_PORT_NAME));
         assertThat(containers.get(0).getPorts().get(0).getProtocol(), is("TCP"));
         assertThat(dep.getSpec().getStrategy().getType(), is("RollingUpdate"));
 
         // Test volumes
         List<Volume> volumes = dep.getSpec().getTemplate().getSpec().getVolumes();
-        assertThat(volumes.size(), is(2));
+        assertThat(volumes.size(), is(3));
 
-        Volume volume = volumes.stream().filter(vol -> KafkaExporter.CLUSTER_CA_CERTS_VOLUME_NAME.equals(vol.getName())).findFirst().get();
+        Volume volume = volumes.stream().filter(vol -> CruiseControl.TLS_SIDECAR_CC_CERTS_VOLUME_NAME.equals(vol.getName())).findFirst().get();
         assertThat(volume, is(notNullValue()));
-        assertThat(volume.getSecret().getSecretName(), is(KafkaResources.clusterCaCertificateSecretName(cluster)));
+        assertThat(volume.getSecret().getSecretName(), is(CruiseControl.secretName(cluster)));
 
-        volume = volumes.stream().filter(vol -> KafkaExporter.KAFKA_EXPORTER_CERTS_VOLUME_NAME.equals(vol.getName())).findFirst().get();
+        volume = volumes.stream().filter(vol -> CruiseControl.TLS_SIDECAR_CA_CERTS_VOLUME_NAME.equals(vol.getName())).findFirst().get();
         assertThat(volume, is(notNullValue()));
-        assertThat(volume.getSecret().getSecretName(), is(KafkaExporterResources.secretName(cluster)));
+        assertThat(volume.getSecret().getSecretName(), is(AbstractModel.clusterCaCertSecretName(cluster)));
+
+        volume = volumes.stream().filter(vol -> CruiseControl.LOG_AND_METRICS_CONFIG_VOLUME_NAME.equals(vol.getName())).findFirst().get();
+        assertThat(volume, is(notNullValue()));
+        assertThat(volume.getConfigMap().getName(), is(CruiseControl.metricAndLogConfigsName(cluster)));
 
         // Test volume mounts
         List<VolumeMount> volumesMounts = dep.getSpec().getTemplate().getSpec().getContainers().get(0).getVolumeMounts();
-        assertThat(volumesMounts.size(), is(2));
+        assertThat(volumesMounts.size(), is(3));
 
-        VolumeMount volumeMount = volumesMounts.stream().filter(vol -> KafkaExporter.CLUSTER_CA_CERTS_VOLUME_NAME.equals(vol.getName())).findFirst().get();
+        VolumeMount volumeMount = volumesMounts.stream().filter(vol -> CruiseControl.TLS_SIDECAR_CC_CERTS_VOLUME_NAME.equals(vol.getName())).findFirst().get();
         assertThat(volumeMount, is(notNullValue()));
-        assertThat(volumeMount.getMountPath(), is(KafkaExporter.CLUSTER_CA_CERTS_VOLUME_MOUNT));
+        assertThat(volumeMount.getMountPath(), is(CruiseControl.TLS_SIDECAR_CC_CERTS_VOLUME_MOUNT));
 
-        volumeMount = volumesMounts.stream().filter(vol -> KafkaExporter.KAFKA_EXPORTER_CERTS_VOLUME_NAME.equals(vol.getName())).findFirst().get();
+        volumeMount = volumesMounts.stream().filter(vol -> CruiseControl.TLS_SIDECAR_CA_CERTS_VOLUME_NAME.equals(vol.getName())).findFirst().get();
         assertThat(volumeMount, is(notNullValue()));
-        assertThat(volumeMount.getMountPath(), is(KafkaExporter.KAFKA_EXPORTER_CERTS_VOLUME_MOUNT));
+        assertThat(volumeMount.getMountPath(), is(CruiseControl.TLS_SIDECAR_CA_CERTS_VOLUME_MOUNT));
 
+        volumeMount = volumesMounts.stream().filter(vol -> CruiseControl.LOG_AND_METRICS_CONFIG_VOLUME_NAME.equals(vol.getName())).findFirst().get();
+        assertThat(volumeMount, is(notNullValue()));
+        assertThat(volumeMount.getMountPath(), is(CruiseControl.LOG_AND_METRICS_CONFIG_VOLUME_MOUNT));
     }
 
     @Test
     public void testEnvVars()   {
-        assertThat(ke.getEnvVars(), is(getExpectedEnvVars()));
+        assertThat(cc.getEnvVars(), is(getExpectedEnvVars()));
     }
 
     @Test
     public void testImagePullPolicy() {
-        Deployment dep = ke.generateDeployment(true, ImagePullPolicy.ALWAYS, null);
+        Deployment dep = cc.generateDeployment(null, true, ImagePullPolicy.ALWAYS, null);
         assertThat(dep.getSpec().getTemplate().getSpec().getContainers().get(0).getImagePullPolicy(), is(ImagePullPolicy.ALWAYS.toString()));
 
-        dep = ke.generateDeployment(true, ImagePullPolicy.IFNOTPRESENT, null);
+        dep = cc.generateDeployment(null, true, ImagePullPolicy.IFNOTPRESENT, null);
         assertThat(dep.getSpec().getTemplate().getSpec().getContainers().get(0).getImagePullPolicy(), is(ImagePullPolicy.IFNOTPRESENT.toString()));
     }
 
@@ -219,24 +217,21 @@ public class KafkaExporterTest {
         envVar2.setName(testEnvTwoKey);
         envVar2.setValue(testEnvTwoValue);
 
-        KafkaExporterSpec exporterSpec = new KafkaExporterSpecBuilder()
-                .withLogging(exporterOperatorLogging)
-                .withGroupRegex(groupRegex)
-                .withTopicRegex(topicRegex)
-                .withImage(keImage)
+        CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder()
+                .withImage(ccImage)
                 .withNewTemplate()
-                    .withNewContainer()
-                        .withEnv(envVar1, envVar2)
-                    .endContainer()
+                    .withNewCruiseControlContainer()
+                       .withEnv(envVar1, envVar2)
+                    .endCruiseControlContainer()
                 .endTemplate()
                 .build();
 
         Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image,
                 healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
-                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, exporterSpec, null);
-        KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
+                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null, cruiseControlSpec);
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
 
-        List<EnvVar> kafkaEnvVars = ke.getEnvVars();
+        List<EnvVar> kafkaEnvVars = cc.getEnvVars();
         assertThat(kafkaEnvVars.stream().filter(var -> testEnvOneKey.equals(var.getName())).map(EnvVar::getValue).findFirst().get(), is(testEnvOneValue));
         assertThat(kafkaEnvVars.stream().filter(var -> testEnvTwoKey.equals(var.getName())).map(EnvVar::getValue).findFirst().get(), is(testEnvTwoValue));
     }
@@ -250,59 +245,54 @@ public class KafkaExporterTest {
         envVar1.setValue(testEnvOneValue);
 
         ContainerEnvVar envVar2 = new ContainerEnvVar();
-        String testEnvTwoKey = KafkaExporter.ENV_VAR_KAFKA_EXPORTER_GROUP_REGEX;
+        String testEnvTwoKey = "TEST_ENV_2";
         String testEnvTwoValue = "my-special-value";
         envVar2.setName(testEnvTwoKey);
         envVar2.setValue(testEnvTwoValue);
 
-        KafkaExporterSpec exporterSpec = new KafkaExporterSpecBuilder()
-                .withLogging(exporterOperatorLogging)
-                .withGroupRegex(groupRegex)
-                .withTopicRegex(topicRegex)
-                .withImage(keImage)
+        CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder()
+                .withImage(ccImage)
                 .withNewTemplate()
-                    .withNewContainer()
+                    .withNewCruiseControlContainer()
                         .withEnv(envVar1, envVar2)
-                    .endContainer()
+                    .endCruiseControlContainer()
                 .endTemplate()
                 .build();
 
         Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image,
                 healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
-                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, exporterSpec, null);
-        KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
+                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null, cruiseControlSpec);
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
 
-        List<EnvVar> kafkaEnvVars = ke.getEnvVars();
+        List<EnvVar> kafkaEnvVars = cc.getEnvVars();
         assertThat(kafkaEnvVars.stream().filter(var -> testEnvOneKey.equals(var.getName())).map(EnvVar::getValue).findFirst().get(), is(testEnvOneValue));
-        assertThat(kafkaEnvVars.stream().filter(var -> testEnvTwoKey.equals(var.getName())).map(EnvVar::getValue).findFirst().get(), is(groupRegex));
     }
 
     @Test
-    public void testExporterNotDeployed() {
+    public void testCruiseControlNotDeployed() {
         Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image,
                 healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
-                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null, null);
-        KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
+                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null,  null);
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
 
-        assertThat(ke.generateDeployment(true, null, null), is(nullValue()));
-        assertThat(ke.generateService(), is(nullValue()));
-        assertThat(ke.generateSecret(null, true), is(nullValue()));
+        assertThat(cc.generateDeployment(null, true, null, null), is(nullValue()));
+        assertThat(cc.generateService(), is(nullValue()));
+        assertThat(cc.generateSecret(null), is(nullValue()));
     }
 
     @Test
     public void testGenerateService()   {
-        Service svc = ke.generateService();
+        Service svc = cc.generateService();
 
         assertThat(svc.getSpec().getType(), is("ClusterIP"));
-        assertThat(svc.getMetadata().getLabels(), is(expectedLabels(ke.getServiceName())));
+        assertThat(svc.getMetadata().getLabels(), is(expectedLabels(cc.getServiceName())));
         assertThat(svc.getSpec().getSelector(), is(expectedSelectorLabels()));
         assertThat(svc.getSpec().getPorts().size(), is(1));
-        assertThat(svc.getSpec().getPorts().get(0).getName(), is(AbstractModel.METRICS_PORT_NAME));
-        assertThat(svc.getSpec().getPorts().get(0).getPort(), is(new Integer(KafkaCluster.METRICS_PORT)));
+        assertThat(svc.getSpec().getPorts().get(0).getName(), is(CruiseControl.REST_API_PORT_NAME));
+        assertThat(svc.getSpec().getPorts().get(0).getPort(), is(new Integer(CruiseControl.DEFAULT_REST_API_PORT)));
         assertThat(svc.getSpec().getPorts().get(0).getProtocol(), is("TCP"));
-        assertThat(svc.getMetadata().getAnnotations(), is(ke.getPrometheusAnnotations()));
 
-        checkOwnerReference(ke.createOwnerReference(), svc);
+        checkOwnerReference(cc.createOwnerReference(), svc);
     }
 
     @Test
@@ -310,9 +300,9 @@ public class KafkaExporterTest {
         Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image,
                 healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
                 kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null, null);
-        KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
 
-        assertThat(ke.generateService(), is(nullValue()));
+        assertThat(cc.generateService(), is(nullValue()));
     }
 
     @Test
@@ -326,10 +316,10 @@ public class KafkaExporterTest {
         Map<String, String> svcLabels = TestUtils.map("l5", "v5", "l6", "v6");
         Map<String, String> svcAnots = TestUtils.map("a5", "v5", "a6", "v6");
 
-        Kafka resource =
-                new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
+        Kafka resource = new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
                 .editSpec()
-                    .withNewKafkaExporter()
+                    .withNewCruiseControl()
+                        .withImage(ccImage)
                         .withNewTemplate()
                             .withNewDeployment()
                                 .withNewMetadata()
@@ -345,20 +335,21 @@ public class KafkaExporterTest {
                                 .withNewPriorityClassName("top-priority")
                                 .withNewSchedulerName("my-scheduler")
                             .endPod()
-                            .withNewService()
+                            .withNewApiService()
                                 .withNewMetadata()
                                     .withLabels(svcLabels)
                                     .withAnnotations(svcAnots)
                                 .endMetadata()
-                            .endService()
+                            .endApiService()
                         .endTemplate()
-                    .endKafkaExporter()
+                    .endCruiseControl()
                 .endSpec()
                 .build();
-        KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
+
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = ke.generateDeployment(true, null, null);
+        Deployment dep = cc.generateDeployment(depAnots, true, null, null);
         assertThat(dep.getMetadata().getLabels().entrySet().containsAll(depLabels.entrySet()), is(true));
         assertThat(dep.getMetadata().getAnnotations().entrySet().containsAll(depAnots.entrySet()), is(true));
 
@@ -369,7 +360,7 @@ public class KafkaExporterTest {
         assertThat(dep.getSpec().getTemplate().getSpec().getSchedulerName(), is("my-scheduler"));
 
         // Check Service
-        Service svc = ke.generateService();
+        Service svc = cc.generateService();
         assertThat(svc.getMetadata().getLabels().entrySet().containsAll(svcLabels.entrySet()), is(true));
         assertThat(svc.getMetadata().getAnnotations().entrySet().containsAll(svcAnots.entrySet()), is(true));
     }

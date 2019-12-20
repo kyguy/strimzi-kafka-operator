@@ -41,7 +41,7 @@ public class CruiseControlConfiguration extends AbstractConfiguration {
    /*
     * Map containing default values for required configuration properties
     */
-    public static final Map<String, String> CC_DEFAULT_PROPERTIES_MAP;
+    public static final Map<String, Object> CC_DEFAULT_PROPERTIES_MAP;
 
     private static final List<String> FORBIDDEN_OPTIONS;
     private static final List<String> EXCEPTIONS;
