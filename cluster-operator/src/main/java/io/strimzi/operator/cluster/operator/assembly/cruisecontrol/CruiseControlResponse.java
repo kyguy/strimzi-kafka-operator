@@ -16,11 +16,11 @@ public class CruiseControlResponse {
         this.json = json;
     }
 
-    String getUserTaskId() {
+    public String getUserTaskId() {
         return userTaskId;
     }
 
-    JsonObject getJson() {
+    public JsonObject getJson() {
         return json;
     }
 
