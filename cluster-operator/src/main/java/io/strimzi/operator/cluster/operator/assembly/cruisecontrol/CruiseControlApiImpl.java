@@ -10,11 +10,15 @@ import io.vertx.core.Vertx;
 public class CruiseControlApiImpl implements CruiseControlApi {
 
     private final Vertx vertx;
-    private final String host;
-    private final int port;
+    private String host;
+    private int port;
+
+    public CruiseControlApiImpl(Vertx vertx) {
+        this.vertx = vertx;
+    }
 
     public CruiseControlApiImpl(Vertx vertx, String host, int port) {
-        this.vertx = vertx;
+        this(vertx);
         this.host = host;
         this.port = port;
     }
