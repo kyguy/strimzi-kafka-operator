@@ -11,6 +11,8 @@ import io.vertx.core.Future;
  */
 public interface CruiseControlApi {
 
+    String USER_ID_HEADER = "User-Task-ID";
+
     Future<CruiseControlResponse> getCruiseControlState(boolean verbose);
     Future<CruiseControlResponse> rebalance(RebalanceOptions options);
     Future<CruiseControlResponse> getUserTaskStatus(String userTaskId);
