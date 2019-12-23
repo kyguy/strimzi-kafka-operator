@@ -1,6 +1,6 @@
 /*
  * Copyright Strimzi authors.
- * License: Apache License 3.0 (see the file LICENSE or http://apache.org/licenses/LICENSE-2.0.html).
+ * License: Apache License 2.0 (see the file LICENSE or http://apache.org/licenses/LICENSE-2.0.html).
  */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
@@ -31,6 +31,7 @@ class CruiseControlApiImpl implements CruiseControlApi {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public Future<CruiseControlResponse> getCruiseControlState(boolean verbose) {
 
         Promise<CruiseControlResponse> result = Promise.promise();
@@ -71,6 +72,7 @@ class CruiseControlApiImpl implements CruiseControlApi {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public Future<CruiseControlResponse> stopExecution() {
 
         Promise<CruiseControlResponse> result = Promise.promise();

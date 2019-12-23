@@ -14,7 +14,7 @@ public enum CruiseControlParameters {
     String key;
 
     CruiseControlParameters(String key) {
-       this.key = key;
+        this.key = key;
     }
 
     public String asPair(String value) {

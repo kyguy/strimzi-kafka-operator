@@ -11,7 +11,7 @@ public class RebalanceOptions {
     private boolean isDryRun;
     private List<String> goals;
     private boolean verbose;
-    private static final boolean replyWithJson = true;
+    private final boolean json = true;
 
     public boolean isDryRun() {
         return isDryRun;
@@ -28,11 +28,11 @@ public class RebalanceOptions {
     public String getQueryString() {
         String queryString = "?" +
                 CruiseControlParameters.DRY_RUN.asPair(String.valueOf(isDryRun)) + "&" +
-                CruiseControlParameters.JSON.asPair(String.valueOf(replyWithJson)) + "&" +
+                CruiseControlParameters.JSON.asPair(String.valueOf(json)) + "&" +
                 CruiseControlParameters.VERBOSE.asPair(String.valueOf(verbose));
 
         if (goals != null) {
-            queryString += "&" + CruiseControlParameters.GOALS.asList(goals) ;
+            queryString += "&" + CruiseControlParameters.GOALS.asList(goals);
         }
 
         return queryString;

@@ -1,3 +1,7 @@
+/*
+ * Copyright Strimzi authors.
+ * License: Apache License 2.0 (see the file LICENSE or http://apache.org/licenses/LICENSE-2.0.html).
+ */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
 import org.junit.jupiter.api.Test;
@@ -38,7 +42,7 @@ public class RebalanceOptionsTest {
         StringBuilder expectedQuery = new StringBuilder(DEFAULT_QUERY);
 
         expectedQuery.append("&").append(CruiseControlParameters.GOALS.key).append("=").append(goals.get(0));
-        for(int i=1;i < goals.size(); i++) {
+        for (int i = 1; i < goals.size(); i++) {
             expectedQuery.append(",").append(goals.get(i));
         }
 
