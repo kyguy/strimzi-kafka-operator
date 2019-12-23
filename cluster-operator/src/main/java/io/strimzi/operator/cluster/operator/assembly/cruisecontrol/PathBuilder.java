@@ -46,6 +46,16 @@ public class PathBuilder {
         return this;
     }
 
+    public PathBuilder addRebalanceParameters(RebalanceOptions options) {
+        PathBuilder builder = addParameter(CruiseControlParameters.DRY_RUN, String.valueOf(options.isDryRun()))
+                .addParameter(CruiseControlParameters.VERBOSE, String.valueOf(options.isVerbose()));
+
+        if (options.getGoals() != null) {
+            builder.addParameter(CruiseControlParameters.GOALS, options.getGoals());
+        }
+        return builder;
+    }
+
     public String build() {
         return constructedPath;
     }

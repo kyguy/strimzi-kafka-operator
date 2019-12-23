@@ -4,7 +4,6 @@
  */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
-import io.strimzi.operator.cluster.operator.assembly.KafkaAssemblyOperator;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
@@ -15,7 +14,7 @@ import org.apache.logging.log4j.Logger;
 
 class CruiseControlApiImpl implements CruiseControlApi {
 
-    private static final Logger log = LogManager.getLogger(KafkaAssemblyOperator.class.getName());
+    private static final Logger log = LogManager.getLogger(CruiseControlApiImpl.class.getName());
 
     private final Vertx vertx;
     private String host;
@@ -69,8 +68,37 @@ class CruiseControlApiImpl implements CruiseControlApi {
     }
 
     @Override
-    public Future<CruiseControlResponse> rebalance(RebalanceOptions options) {
-        return Future.failedFuture("Not implemented yet");
+    @SuppressWarnings("deprecation")
+    public Future<CruiseControlResponse> rebalance(RebalanceOptions rbOptions) {
+        Promise<CruiseControlResponse> result = Promise.promise();
+        HttpClientOptions httpOptions = new HttpClientOptions().setLogActivity(true);
+
+        String path = new PathBuilder(CruiseControlEndpoints.REBALANCE)
+                .addParameter(CruiseControlParameters.JSON, "true")
+                .addRebalanceParameters(rbOptions)
+                .build();
+
+
+        vertx.createHttpClient(httpOptions)
+                .post(port, host, path, response -> {
+                    response.exceptionHandler(result::fail);
+                    if (response.statusCode() == 200 || response.statusCode() == 201) {
+                        response.bodyHandler(buffer -> {
+                            String userTaskID = response.getHeader(USER_ID_HEADER);
+                            JsonObject json = buffer.toJsonObject();
+                            CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
+                            result.complete(ccResponse);
+                        });
+                    } else {
+                        result.fail(new CruiseControlRestException(
+                                "Unexpected status code " + response.statusCode() + " for POST request to " +
+                                host + ":" + port + path));
+                    }
+                })
+                .exceptionHandler(result::fail)
+                .end();
+
+        return result.future();
     }
 
     @Override
@@ -90,9 +118,10 @@ class CruiseControlApiImpl implements CruiseControlApi {
                 .get(port, host, path, response -> {
                     response.exceptionHandler(result::fail);
                     if (response.statusCode() == 200 || response.statusCode() == 201) {
+                        String userTaskID = response.getHeader(USER_ID_HEADER);
                         response.bodyHandler(buffer -> {
                             JsonObject json = buffer.toJsonObject();
-                            CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskId, json);
+                            CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
                             result.complete(ccResponse);
                         });
                     } else {

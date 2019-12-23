@@ -6,24 +6,42 @@ package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 public class PathBuilderTest {
 
     private static final String DEFAULT_QUERY = "?" +
-            CruiseControlParameters.DRY_RUN.key + "=true" + "&" +
             CruiseControlParameters.JSON.key + "=true" + "&" +
+            CruiseControlParameters.DRY_RUN.key + "=true" + "&" +
             CruiseControlParameters.VERBOSE.key + "=false";
+
+    private static final List<String> GOALS = Arrays.asList("goal.one", "goal.two", "goal.three", "goal.four", "goal.five");
+
+    private String getExpectedRebalanceString() {
+
+        StringBuilder expectedQuery = new StringBuilder(
+                CruiseControlEndpoints.REBALANCE.path + DEFAULT_QUERY + "&" + CruiseControlParameters.GOALS.key + "=");
+
+        for (int i = 0; i < GOALS.size(); i++) {
+            expectedQuery.append(GOALS.get(i));
+            if (i < GOALS.size() - 1) {
+                expectedQuery.append(",");
+            }
+        }
+
+        return expectedQuery.toString();
+    }
     @Test
     public void testQueryStringPair() {
 
         String path = new PathBuilder(CruiseControlEndpoints.STATE)
-                .addParameter(CruiseControlParameters.DRY_RUN, "true")
                 .addParameter(CruiseControlParameters.JSON, "true")
+                .addParameter(CruiseControlParameters.DRY_RUN, "true")
                 .addParameter(CruiseControlParameters.VERBOSE, "false")
                 .build();
 
@@ -34,30 +52,28 @@ public class PathBuilderTest {
     @Test
     public void testQueryStringList() {
 
-        List<String> goals = new ArrayList();
-        goals.add("goal.one");
-        goals.add("goal.two");
-        goals.add("goal.three");
-        goals.add("goal.four");
-        goals.add("goal.five");
-
-        StringBuilder expectedQuery = new StringBuilder(DEFAULT_QUERY + "&" + CruiseControlParameters.GOALS.key + "=");
-
-        for (int i = 0; i < goals.size(); i++) {
-            expectedQuery.append(goals.get(i));
-            if (i < goals.size() - 1) {
-                expectedQuery.append(",");
-            }
-        }
-
         String path = new PathBuilder(CruiseControlEndpoints.REBALANCE)
-                .addParameter(CruiseControlParameters.DRY_RUN, "true")
                 .addParameter(CruiseControlParameters.JSON, "true")
+                .addParameter(CruiseControlParameters.DRY_RUN, "true")
                 .addParameter(CruiseControlParameters.VERBOSE, "false")
-                .addParameter(CruiseControlParameters.GOALS, goals)
+                .addParameter(CruiseControlParameters.GOALS, GOALS)
                 .build();
 
-        assertThat(path, containsString(expectedQuery.toString()));
+
+        assertThat(path, is(getExpectedRebalanceString()));
 
     }
+
+    @Test
+    public void testQueryRebalanceOptions() {
+
+        RebalanceOptions options = new RebalanceOptions.RebalanceOptionsBuilder().withGoals(GOALS).build();
+
+        String path = new PathBuilder(CruiseControlEndpoints.REBALANCE)
+                .addParameter(CruiseControlParameters.JSON, "true")
+                .addRebalanceParameters(options).build();
+
+        assertThat(path, is(getExpectedRebalanceString()));
+    }
+
 }
