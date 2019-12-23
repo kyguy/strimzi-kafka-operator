@@ -4,15 +4,18 @@
  */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
-enum CruiseControlEndpoint {
+enum CruiseControlEndpoints {
 
     STATE("/kafkacruisecontrol/state"),
     REBALANCE("/kafkacruisecontrol/rebalance"),
-    STOP("/kafkacruisecontrol/stop_proposal_execution");
+    STOP("/kafkacruisecontrol/stop_proposal_execution"),
+    USER_TASKS("/kafkacruisecontrol/user_tasks");
 
     String path;
 
-    CruiseControlEndpoint(String path) {
+    CruiseControlEndpoints(String path) {
         this.path = path;
     }
+
+
 }

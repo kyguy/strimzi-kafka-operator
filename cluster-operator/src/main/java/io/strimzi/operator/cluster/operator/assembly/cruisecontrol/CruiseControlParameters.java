@@ -9,7 +9,9 @@ public enum CruiseControlParameters {
     DRY_RUN("dryrun"),
     JSON("json"),
     GOALS("goals"),
-    VERBOSE("verbose");
+    VERBOSE("verbose"),
+    FETCH_COMPLETE("fetch_completed_task"),
+    USER_TASK_IDS("user_task_ids");
 
     String key;
 

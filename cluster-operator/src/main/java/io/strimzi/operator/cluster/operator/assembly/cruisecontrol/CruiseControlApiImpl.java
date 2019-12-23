@@ -4,13 +4,18 @@
  */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
+import io.strimzi.operator.cluster.operator.assembly.KafkaAssemblyOperator;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 class CruiseControlApiImpl implements CruiseControlApi {
+
+    private static final Logger log = LogManager.getLogger(KafkaAssemblyOperator.class.getName());
 
     private final Vertx vertx;
     private String host;
@@ -37,7 +42,8 @@ class CruiseControlApiImpl implements CruiseControlApi {
         Promise<CruiseControlResponse> result = Promise.promise();
         HttpClientOptions options = new HttpClientOptions().setLogActivity(true);
 
-        String path = CruiseControlEndpoint.STATE.path + "?json=true";
+        String path = new PathBuilder(CruiseControlEndpoints.STATE)
+                .addParameter(CruiseControlParameters.JSON, "true").build();
 
         vertx.createHttpClient(options)
                 .get(port, host, path, response -> {
@@ -51,8 +57,9 @@ class CruiseControlApiImpl implements CruiseControlApi {
                         });
 
                     } else {
-                        result.fail(new CruiseControlRestException("Unexpected status code " + response.statusCode()
-                                + " for GET request to " + host + ":" + port + CruiseControlEndpoint.STATE.path));
+                        result.fail(new CruiseControlRestException(
+                                "Unexpected status code " + response.statusCode() + " for GET request to " +
+                                host + ":" + port + path));
                     }
                 })
                 .exceptionHandler(result::fail)
@@ -67,8 +74,37 @@ class CruiseControlApiImpl implements CruiseControlApi {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public Future<CruiseControlResponse> getUserTaskStatus(String userTaskId) {
-        return Future.failedFuture("Not implemented yet");
+
+        Promise<CruiseControlResponse> result = Promise.promise();
+        HttpClientOptions options = new HttpClientOptions().setLogActivity(true);
+
+        String path = new PathBuilder(CruiseControlEndpoints.USER_TASKS)
+                        .addParameter(CruiseControlParameters.JSON, "true")
+                        .addParameter(CruiseControlParameters.FETCH_COMPLETE, "true")
+                        .addParameter(CruiseControlParameters.USER_TASK_IDS, userTaskId).build();
+
+
+        vertx.createHttpClient(options)
+                .get(port, host, path, response -> {
+                    response.exceptionHandler(result::fail);
+                    if (response.statusCode() == 200 || response.statusCode() == 201) {
+                        response.bodyHandler(buffer -> {
+                            JsonObject json = buffer.toJsonObject();
+                            CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskId, json);
+                            result.complete(ccResponse);
+                        });
+                    } else {
+                        result.fail(new CruiseControlRestException(
+                                "Unexpected status code " + response.statusCode() + " for GET request to " +
+                                host + ":" + port + path));
+                    }
+                })
+                .exceptionHandler(result::fail)
+                .end();
+
+        return result.future();
     }
 
     @Override
@@ -78,7 +114,8 @@ class CruiseControlApiImpl implements CruiseControlApi {
         Promise<CruiseControlResponse> result = Promise.promise();
         HttpClientOptions options = new HttpClientOptions().setLogActivity(true);
 
-        String path = CruiseControlEndpoint.STOP.path + "?json=true";
+        String path = new PathBuilder(CruiseControlEndpoints.STOP)
+                        .addParameter(CruiseControlParameters.JSON, "true").build();
 
         vertx.createHttpClient(options)
                 .post(port, host, path, response -> {
@@ -92,8 +129,9 @@ class CruiseControlApiImpl implements CruiseControlApi {
                         });
 
                     } else {
-                        result.fail("Unexpected status code " + response.statusCode()
-                                + " for GET request to " + host + ":" + port + CruiseControlEndpoint.STOP.path);
+                        result.fail(new CruiseControlRestException(
+                                "Unexpected status code " + response.statusCode()  + " for GET request to " +
+                                host + ":" + port + path));
                     }
                 })
                 .exceptionHandler(result::fail)
