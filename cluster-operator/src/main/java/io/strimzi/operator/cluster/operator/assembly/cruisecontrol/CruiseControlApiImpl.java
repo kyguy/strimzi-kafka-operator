@@ -10,34 +10,18 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 class CruiseControlApiImpl implements CruiseControlApi {
 
-    private static final Logger log = LogManager.getLogger(CruiseControlApiImpl.class.getName());
-
     private final Vertx vertx;
-    private String host;
-    private int port;
 
     public CruiseControlApiImpl(Vertx vertx) {
         this.vertx = vertx;
     }
 
-    public CruiseControlApiImpl(Vertx vertx, String host, int port) {
-        this(vertx);
-        this.host = host;
-        this.port = port;
-    }
-
-    public Future<CruiseControlResponse> getCruiseControlState() {
-        return getCruiseControlState(false);
-    }
-
     @Override
     @SuppressWarnings("deprecation")
-    public Future<CruiseControlResponse> getCruiseControlState(boolean verbose) {
+    public Future<CruiseControlResponse> getCruiseControlState(String host, int port, boolean verbose) {
 
         Promise<CruiseControlResponse> result = Promise.promise();
         HttpClientOptions options = new HttpClientOptions().setLogActivity(true);
@@ -69,12 +53,12 @@ class CruiseControlApiImpl implements CruiseControlApi {
     }
 
     @Override
-    public Future<CruiseControlResponse> rebalance(RebalanceOptions rbOptions) {
-        return rebalance(rbOptions, null);
+    public Future<CruiseControlResponse> rebalance(String host, int port, RebalanceOptions rbOptions) {
+        return rebalance(host, port, rbOptions, null);
     }
 
     @SuppressWarnings("deprecation")
-    public Future<CruiseControlResponse> rebalance(RebalanceOptions rbOptions, String userTaskId) {
+    public Future<CruiseControlResponse> rebalance(String host, int port, RebalanceOptions rbOptions, String userTaskId) {
 
         if (rbOptions == null && userTaskId == null) {
             return Future.factory.failedFuture(
@@ -119,7 +103,7 @@ class CruiseControlApiImpl implements CruiseControlApi {
 
     @Override
     @SuppressWarnings("deprecation")
-    public Future<CruiseControlResponse> getUserTaskStatus(String userTaskId) {
+    public Future<CruiseControlResponse> getUserTaskStatus(String host, int port, String userTaskId) {
 
         Promise<CruiseControlResponse> result = Promise.promise();
         HttpClientOptions options = new HttpClientOptions().setLogActivity(true);
@@ -154,7 +138,7 @@ class CruiseControlApiImpl implements CruiseControlApi {
 
     @Override
     @SuppressWarnings("deprecation")
-    public Future<CruiseControlResponse> stopExecution() {
+    public Future<CruiseControlResponse> stopExecution(String host, int port) {
 
         Promise<CruiseControlResponse> result = Promise.promise();
         HttpClientOptions options = new HttpClientOptions().setLogActivity(true);
