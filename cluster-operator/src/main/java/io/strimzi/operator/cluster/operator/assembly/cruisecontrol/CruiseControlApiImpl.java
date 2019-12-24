@@ -8,6 +8,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -68,8 +69,18 @@ class CruiseControlApiImpl implements CruiseControlApi {
     }
 
     @Override
-    @SuppressWarnings("deprecation")
     public Future<CruiseControlResponse> rebalance(RebalanceOptions rbOptions) {
+        return rebalance(rbOptions, null);
+    }
+
+    @SuppressWarnings("deprecation")
+    public Future<CruiseControlResponse> rebalance(RebalanceOptions rbOptions, String userTaskId) {
+
+        if (rbOptions == null && userTaskId == null) {
+            return Future.factory.failedFuture(
+                    new IllegalArgumentException("Either rebalance options or user task ID should be supplied, both were null"));
+        }
+
         Promise<CruiseControlResponse> result = Promise.promise();
         HttpClientOptions httpOptions = new HttpClientOptions().setLogActivity(true);
 
@@ -79,14 +90,14 @@ class CruiseControlApiImpl implements CruiseControlApi {
                 .build();
 
 
-        vertx.createHttpClient(httpOptions)
+        HttpClientRequest request = vertx.createHttpClient(httpOptions)
                 .post(port, host, path, response -> {
                     response.exceptionHandler(result::fail);
                     if (response.statusCode() == 200 || response.statusCode() == 201) {
                         response.bodyHandler(buffer -> {
-                            String userTaskID = response.getHeader(USER_ID_HEADER);
+                            String returnedUTID = response.getHeader(USER_ID_HEADER);
                             JsonObject json = buffer.toJsonObject();
-                            CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
+                            CruiseControlResponse ccResponse = new CruiseControlResponse(returnedUTID, json);
                             result.complete(ccResponse);
                         });
                     } else {
@@ -95,8 +106,13 @@ class CruiseControlApiImpl implements CruiseControlApi {
                                 host + ":" + port + path));
                     }
                 })
-                .exceptionHandler(result::fail)
-                .end();
+                .exceptionHandler(result::fail);
+
+        if (userTaskId != null) {
+            request.putHeader(USER_ID_HEADER, userTaskId);
+        }
+
+        request.end();
 
         return result.future();
     }

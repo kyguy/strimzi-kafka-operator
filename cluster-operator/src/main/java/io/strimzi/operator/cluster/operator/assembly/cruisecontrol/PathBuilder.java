@@ -47,13 +47,17 @@ public class PathBuilder {
     }
 
     public PathBuilder addRebalanceParameters(RebalanceOptions options) {
-        PathBuilder builder = addParameter(CruiseControlParameters.DRY_RUN, String.valueOf(options.isDryRun()))
-                .addParameter(CruiseControlParameters.VERBOSE, String.valueOf(options.isVerbose()));
+        if (options != null) {
+            PathBuilder builder = addParameter(CruiseControlParameters.DRY_RUN, String.valueOf(options.isDryRun()))
+                    .addParameter(CruiseControlParameters.VERBOSE, String.valueOf(options.isVerbose()));
 
-        if (options.getGoals() != null) {
-            builder.addParameter(CruiseControlParameters.GOALS, options.getGoals());
+            if (options.getGoals() != null) {
+                builder.addParameter(CruiseControlParameters.GOALS, options.getGoals());
+            }
+            return builder;
+        } else {
+            return this;
         }
-        return builder;
     }
 
     public String build() {
