@@ -11,7 +11,7 @@ import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 
-class CruiseControlApiImpl implements CruiseControlApi {
+public class CruiseControlApiImpl implements CruiseControlApi {
 
     private final Vertx vertx;
 
