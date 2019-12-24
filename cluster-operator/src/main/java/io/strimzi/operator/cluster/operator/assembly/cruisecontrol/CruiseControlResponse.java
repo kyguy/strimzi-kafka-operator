@@ -24,4 +24,12 @@ public class CruiseControlResponse {
         return json;
     }
 
+    public String prettyPrint() {
+        return "User Task ID: " + userTaskId + "\nJSON:\n " + json.encodePrettily();
+    }
+
+    public String toString() {
+        return "User Task ID: " + userTaskId + " JSON: " + json.toString();
+    }
+
 }

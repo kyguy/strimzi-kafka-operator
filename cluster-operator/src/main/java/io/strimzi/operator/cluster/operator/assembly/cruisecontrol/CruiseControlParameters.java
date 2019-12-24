@@ -9,12 +9,14 @@ public enum CruiseControlParameters {
     DRY_RUN("dryrun"),
     JSON("json"),
     GOALS("goals"),
-    VERBOSE("verbose");
+    VERBOSE("verbose"),
+    FETCH_COMPLETE("fetch_completed_task"),
+    USER_TASK_IDS("user_task_ids");
 
     String key;
 
     CruiseControlParameters(String key) {
-       this.key = key;
+        this.key = key;
     }
 
     public String asPair(String value) {
