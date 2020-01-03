@@ -84,7 +84,7 @@ public class CruiseControlTemplate implements Serializable, UnknownPropertyPrese
         return cruiseControlContainer;
     }
 
-    public void setCruiseControlContainer(ContainerTemplate bridgeContainer) {
+    public void setCruiseControlContainer(ContainerTemplate cruiseControlContainer) {
         this.cruiseControlContainer = cruiseControlContainer;
     }
 
