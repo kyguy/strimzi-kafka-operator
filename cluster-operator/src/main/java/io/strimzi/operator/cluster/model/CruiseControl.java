@@ -133,14 +133,13 @@ public class CruiseControl extends AbstractModel {
     }
 
     public static CruiseControl fromCrd(Kafka kafkaAssembly, KafkaVersion.Lookup versions) {
-        CruiseControl cruiseControl = new CruiseControl(kafkaAssembly.getMetadata().getNamespace(),
-                    kafkaAssembly.getMetadata().getName(),
-                    Labels.fromResource(kafkaAssembly).withKind(kafkaAssembly.getKind()));
-
-        KafkaSpec kafkaSpec  = kafkaAssembly.getSpec();
-        CruiseControlSpec spec  = kafkaSpec.getCruiseControl();
+        CruiseControl cruiseControl = null;
+        CruiseControlSpec spec  = kafkaAssembly.getSpec().getCruiseControl();
 
         if (spec != null) {
+            cruiseControl = new CruiseControl(kafkaAssembly.getMetadata().getNamespace(),
+                    kafkaAssembly.getMetadata().getName(),
+                    Labels.fromResource(kafkaAssembly).withKind(kafkaAssembly.getKind()));
             cruiseControl.isDeployed = true;
 
             cruiseControl.setReplicas(spec.getReplicas());
@@ -166,7 +165,7 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.setTlsSidecar(tlsSidecar);
 
             cruiseControl = updateConfiguration(spec, cruiseControl);
-            KafkaConfiguration configuration = new KafkaConfiguration(kafkaSpec.getKafka().getConfig().entrySet());
+            KafkaConfiguration configuration = new KafkaConfiguration(kafkaAssembly.getSpec().getKafka().getConfig().entrySet());
             if (configuration.getConfigOption(MIN_INSYNC_REPLICAS) != null) {
                 cruiseControl.minInsyncReplicas = configuration.getConfigOption(MIN_INSYNC_REPLICAS);
             }
@@ -190,8 +189,6 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.setTolerations(tolerations(spec));
             cruiseControl.setOwnerReference(kafkaAssembly);
             cruiseControl = updateTemplate(spec, cruiseControl);
-        } else {
-            cruiseControl.isDeployed = false;
         }
 
         return cruiseControl;
