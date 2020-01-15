@@ -122,7 +122,7 @@ public class ClusterCa extends Ca {
         return cruiseControlSecret;
     }
 
-    public Map<String, CertAndKey> generateZkCerts(Kafka kafka) throws IOException {
+    public Map<String, CertAndKey> generateZkCerts(Kafka kafka, boolean isMaintenanceTimeWindowsSatisfied) throws IOException {
         String cluster = kafka.getMetadata().getName();
         String namespace = kafka.getMetadata().getNamespace();
         Function<Integer, Subject> subjectFn = i -> {
@@ -146,10 +146,12 @@ public class ClusterCa extends Ca {
             kafka.getSpec().getZookeeper().getReplicas(),
             subjectFn,
             zkNodesSecret,
-            podNum -> ZookeeperCluster.zookeeperPodName(cluster, podNum));
+            podNum -> ZookeeperCluster.zookeeperPodName(cluster, podNum),
+            isMaintenanceTimeWindowsSatisfied);
     }
 
-    public Map<String, CertAndKey> generateBrokerCerts(Kafka kafka, Set<String> externalBootstrapAddresses, Map<Integer, Set<String>> externalAddresses) throws IOException {
+    public Map<String, CertAndKey> generateBrokerCerts(Kafka kafka, Set<String> externalBootstrapAddresses,
+            Map<Integer, Set<String>> externalAddresses, boolean isMaintenanceTimeWindowsSatisfied) throws IOException {
         String cluster = kafka.getMetadata().getName();
         String namespace = kafka.getMetadata().getNamespace();
         Function<Integer, Subject> subjectFn = i -> {
@@ -163,7 +165,8 @@ public class ClusterCa extends Ca {
             sbjAltNames.put("DNS.7", String.format("%s.%s.svc", KafkaCluster.headlessServiceName(cluster), namespace));
             sbjAltNames.put("DNS.8", String.format("%s.%s.svc.%s", KafkaCluster.headlessServiceName(cluster), namespace, ModelUtils.KUBERNETES_SERVICE_DNS_DOMAIN));
             sbjAltNames.put("DNS.9", KafkaCluster.podDnsName(namespace, cluster, i));
-            int nextDnsId = 10;
+            sbjAltNames.put("DNS.10", KafkaCluster.podDnsNameWithoutSuffix(namespace, cluster, i));
+            int nextDnsId = 11;
             int nextIpId = 1;
 
             if (externalBootstrapAddresses != null)   {
@@ -198,7 +201,8 @@ public class ClusterCa extends Ca {
             kafka.getSpec().getKafka().getReplicas(),
             subjectFn,
             brokersSecret,
-            podNum -> KafkaCluster.kafkaPodName(cluster, podNum));
+            podNum -> KafkaCluster.kafkaPodName(cluster, podNum),
+            isMaintenanceTimeWindowsSatisfied);
     }
 
 }
