@@ -140,7 +140,7 @@ import static io.strimzi.operator.cluster.model.KafkaVersion.compareDottedVersio
  *     <li>Optionally, a TopicOperator Deployment</li>
  * </ul>
  */
-@SuppressWarnings({"checkstyle:ClassDataAbstractionCoupling", "checkstyle:ClassFanOutComplexity"})
+@SuppressWarnings({"checkstyle:ClassDataAbstractionCoupling", "checkstyle:ClassFanOutComplexity", "checkstyle:JavaNCSS"})
 public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesClient, Kafka, KafkaList, DoneableKafka, Resource<Kafka, DoneableKafka>> {
     private static final Logger log = LogManager.getLogger(KafkaAssemblyOperator.class.getName());
 
@@ -334,7 +334,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                 .compose(state -> state.getCruiseControlDescription())
                 .compose(state -> state.cruiseControlServiceAccount())
                 .compose(state -> state.cruiseControlAncillaryCm())
-                .compose(state -> state.cruiseControlSecret())
+                .compose(state -> state.cruiseControlSecret(this::dateSupplier))
                 .compose(state -> state.cruiseControlDeployment())
                 .compose(state -> state.cruiseControlService())
                 .compose(state -> state.cruiseControlReady())
@@ -2890,8 +2890,8 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
                     cruiseControlMetricsAndLogsConfigMap));
         }
 
-        Future<ReconciliationState> cruiseControlSecret() {
-            return withVoid(secretOperations.reconcile(namespace, CruiseControl.secretName(name), cruiseControl.generateSecret(clusterCa)));
+        Future<ReconciliationState> cruiseControlSecret(Supplier<Date> dateSupplier) {
+            return withVoid(secretOperations.reconcile(namespace, CruiseControl.secretName(name), cruiseControl.generateSecret(clusterCa, isMaintenanceTimeWindowsSatisfied(dateSupplier))));
         }
 
         Future<ReconciliationState> cruiseControlDeployment() {
