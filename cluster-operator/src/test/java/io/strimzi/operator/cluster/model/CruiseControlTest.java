@@ -54,13 +54,10 @@ public class CruiseControlTest {
     private final Map<String, Object> metricsCm = singletonMap("animal", "wombat");
     private final Map<String, Object> kafkaConfig = singletonMap(CruiseControl.MIN_INSYNC_REPLICAS, minInsyncReplicas);
     private final Map<String, Object> zooConfig = singletonMap("foo", "bar");
-
-    private final Map<String, Object> ccMapConfig = new HashMap<String, Object>() {{
+    private final Map<String, Object> ccConfig = new HashMap<String, Object>() {{
             putAll(CC_DEFAULT_PROPERTIES_MAP);
             put("num.partition.metrics.windows", "2");
         }};
-    private CruiseControlConfiguration ccConfig =  new CruiseControlConfiguration(ccMapConfig.entrySet());
-
     private final Storage kafkaStorage = new EphemeralStorage();
     private final SingleVolumeStorage zkStorage = new EphemeralStorage();
     private final InlineLogging kafkaLogJson = new InlineLogging();
@@ -78,19 +75,19 @@ public class CruiseControlTest {
     private final CruiseControlSpec cruiseControlOperator = new CruiseControlSpecBuilder()
             .withImage(ccImage)
             .withReplicas(replicas)
-            .withConfig(ccMapConfig)
+            .withConfig(ccConfig)
             .build();
 
     private final Kafka resource =
             new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
-                    .editSpec()
-                    .editKafka()
+            .editSpec()
+                .editKafka()
                     .withVersion(version)
                     .withConfig(kafkaConfig)
-                    .endKafka()
-                    .withCruiseControl(cruiseControlOperator)
-                    .endSpec()
-                    .build();
+                .endKafka()
+                .withCruiseControl(cruiseControlOperator)
+            .endSpec()
+            .build();
 
     private final CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
 
@@ -110,7 +107,7 @@ public class CruiseControlTest {
     }
 
     private Map<String, String> expectedSelectorLabels()    {
-        return Labels.fromMap(expectedLabels()).strimziLabels().toMap();
+        return Labels.fromMap(expectedLabels()).strimziSelectorLabels().toMap();
     }
 
     private Map<String, String> expectedLabels()    {
@@ -123,7 +120,7 @@ public class CruiseControlTest {
         expected.add(new EnvVarBuilder().withName(KafkaMirrorMakerCluster.ENV_VAR_STRIMZI_KAFKA_GC_LOG_ENABLED).withValue(Boolean.toString(AbstractModel.DEFAULT_JVM_GC_LOGGING_ENABLED)).build());
         expected.add(new EnvVarBuilder().withName(CruiseControl.ENV_VAR_MIN_INSYNC_REPLICAS).withValue(minInsyncReplicas).build());
         expected.add(new EnvVarBuilder().withName(KafkaMirrorMakerCluster.ENV_VAR_KAFKA_HEAP_OPTS).withValue(kafkaHeapOpts).build());
-        expected.add(new EnvVarBuilder().withName(CruiseControl.ENV_VAR_CRUISE_CONTROL_CONFIGURATION).withValue(ccConfig.getConfiguration()).build());
+        expected.add(new EnvVarBuilder().withName(CruiseControl.ENV_VAR_CRUISE_CONTROL_CONFIGURATION).withValue(new CruiseControlConfiguration(ccConfig.entrySet()).getConfiguration()).build());
 
         return expected;
     }
@@ -149,11 +146,12 @@ public class CruiseControlTest {
         assertThat(dep.getMetadata().getOwnerReferences().get(0), is(cc.createOwnerReference()));
 
         // checks on the main Cruise Control container
-        assertThat(containers.get(0).getImage(), is(cc.image));
-        assertThat(containers.get(0).getEnv(), is(getExpectedEnvVars()));
-        assertThat(containers.get(0).getPorts().size(), is(1));
-        assertThat(containers.get(0).getPorts().get(0).getName(), is(CruiseControl.REST_API_PORT_NAME));
-        assertThat(containers.get(0).getPorts().get(0).getProtocol(), is("TCP"));
+        Container ccContainer = containers.stream().filter(container -> ccImage.equals(container.getImage())).findFirst().get();
+        assertThat(ccContainer.getImage(), is(cc.image));
+        assertThat(ccContainer.getEnv(), is(getExpectedEnvVars()));
+        assertThat(ccContainer.getPorts().size(), is(1));
+        assertThat(ccContainer.getPorts().get(0).getName(), is(CruiseControl.REST_API_PORT_NAME));
+        assertThat(ccContainer.getPorts().get(0).getProtocol(), is("TCP"));
         assertThat(dep.getSpec().getStrategy().getType(), is("RollingUpdate"));
 
         // Test volumes
@@ -277,7 +275,7 @@ public class CruiseControlTest {
 
         assertThat(cc.generateDeployment(null, true, null, null), is(nullValue()));
         assertThat(cc.generateService(), is(nullValue()));
-        assertThat(cc.generateSecret(null), is(nullValue()));
+        assertThat(cc.generateSecret(null, true), is(nullValue()));
     }
 
     @Test
@@ -289,7 +287,7 @@ public class CruiseControlTest {
         assertThat(svc.getSpec().getSelector(), is(expectedSelectorLabels()));
         assertThat(svc.getSpec().getPorts().size(), is(1));
         assertThat(svc.getSpec().getPorts().get(0).getName(), is(CruiseControl.REST_API_PORT_NAME));
-        assertThat(svc.getSpec().getPorts().get(0).getPort(), is(new Integer(CruiseControl.DEFAULT_REST_API_PORT)));
+        assertThat(svc.getSpec().getPorts().get(0).getPort(), is(new Integer(CruiseControl.REST_API_PORT)));
         assertThat(svc.getSpec().getPorts().get(0).getProtocol(), is("TCP"));
 
         checkOwnerReference(cc.createOwnerReference(), svc);

@@ -72,7 +72,7 @@ public class CruiseControl extends AbstractModel {
     private String minInsyncReplicas = "1";
 
     public static final String REST_API_PORT_NAME = "rest-api";
-    public static final int DEFAULT_REST_API_PORT = 9090;
+    public static final int REST_API_PORT = 9090;
     protected static final int DEFAULT_BOOTSTRAP_SERVERS_PORT = 9092;
     public static final String MIN_INSYNC_REPLICAS = "min.insync.replicas";
 
@@ -133,7 +133,9 @@ public class CruiseControl extends AbstractModel {
     }
 
     public static CruiseControl fromCrd(Kafka kafkaAssembly, KafkaVersion.Lookup versions) {
-        CruiseControl cruiseControl = null;
+        CruiseControl cruiseControl = new CruiseControl(kafkaAssembly.getMetadata().getNamespace(),
+                kafkaAssembly.getMetadata().getName(),
+                Labels.fromResource(kafkaAssembly).withKind(kafkaAssembly.getKind()));
         CruiseControlSpec spec  = kafkaAssembly.getSpec().getCruiseControl();
 
         if (spec != null) {
@@ -266,7 +268,7 @@ public class CruiseControl extends AbstractModel {
         }
 
         List<ServicePort> ports = new ArrayList<>(1);
-        ports.add(createServicePort(REST_API_PORT_NAME, DEFAULT_REST_API_PORT, DEFAULT_REST_API_PORT, "TCP"));
+        ports.add(createServicePort(REST_API_PORT_NAME, REST_API_PORT, REST_API_PORT, "TCP"));
 
         return createService("ClusterIP", ports, templateServiceAnnotations);
     }
@@ -274,13 +276,11 @@ public class CruiseControl extends AbstractModel {
     protected List<ContainerPort> getContainerPortList() {
         List<ContainerPort> portList = new ArrayList<>(1);
 
-        portList.add(createContainerPort(REST_API_PORT_NAME, DEFAULT_REST_API_PORT, "TCP"));
+        portList.add(createContainerPort(REST_API_PORT_NAME, REST_API_PORT, "TCP"));
 
         if (isMetricsEnabled) {
             portList.add(createContainerPort(METRICS_PORT_NAME, METRICS_PORT, "TCP"));
         }
-        portList.add(createContainerPort(REST_API_PORT_NAME, DEFAULT_REST_API_PORT, "TCP"));
-
 
         return portList;
     }
