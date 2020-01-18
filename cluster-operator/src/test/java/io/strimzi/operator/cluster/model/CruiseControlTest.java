@@ -8,11 +8,15 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.EnvVarBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.OwnerReference;
+import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.policy.PodDisruptionBudget;
 import io.strimzi.api.kafka.model.ContainerEnvVar;
 import io.strimzi.api.kafka.model.CruiseControlResources;
 import io.strimzi.api.kafka.model.CruiseControlSpec;
@@ -72,7 +76,7 @@ public class CruiseControlTest {
         zooLogJson.setLoggers(singletonMap("zookeeper.root.logger", "OFF"));
     }
 
-    private final CruiseControlSpec cruiseControlOperator = new CruiseControlSpecBuilder()
+    private final CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder()
             .withImage(ccImage)
             .withReplicas(replicas)
             .withConfig(ccConfig)
@@ -85,7 +89,7 @@ public class CruiseControlTest {
                     .withVersion(version)
                     .withConfig(kafkaConfig)
                 .endKafka()
-                .withCruiseControl(cruiseControlOperator)
+                .withCruiseControl(cruiseControlSpec)
             .endSpec()
             .build();
 
@@ -148,6 +152,16 @@ public class CruiseControlTest {
         // checks on the main Cruise Control container
         Container ccContainer = containers.stream().filter(container -> ccImage.equals(container.getImage())).findFirst().get();
         assertThat(ccContainer.getImage(), is(cc.image));
+        assertThat(ccContainer.getLivenessProbe().getInitialDelaySeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_DELAY)));
+        assertThat(ccContainer.getLivenessProbe().getTimeoutSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_TIMEOUT)));
+        assertThat(ccContainer.getLivenessProbe().getFailureThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)));
+        assertThat(ccContainer.getLivenessProbe().getSuccessThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)));
+        assertThat(ccContainer.getLivenessProbe().getPeriodSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)));
+        assertThat(ccContainer.getReadinessProbe().getInitialDelaySeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_DELAY)));
+        assertThat(ccContainer.getReadinessProbe().getTimeoutSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_TIMEOUT)));
+        assertThat(ccContainer.getReadinessProbe().getFailureThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)));
+        assertThat(ccContainer.getReadinessProbe().getSuccessThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)));
+        assertThat(ccContainer.getReadinessProbe().getPeriodSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)));
         assertThat(ccContainer.getEnv(), is(getExpectedEnvVars()));
         assertThat(ccContainer.getPorts().size(), is(1));
         assertThat(ccContainer.getPorts().get(0).getName(), is(CruiseControl.REST_API_PORT_NAME));
@@ -195,10 +209,14 @@ public class CruiseControlTest {
     @Test
     public void testImagePullPolicy() {
         Deployment dep = cc.generateDeployment(null, true, ImagePullPolicy.ALWAYS, null);
-        assertThat(dep.getSpec().getTemplate().getSpec().getContainers().get(0).getImagePullPolicy(), is(ImagePullPolicy.ALWAYS.toString()));
+        List<Container> containers = dep.getSpec().getTemplate().getSpec().getContainers();
+        Container ccContainer = containers.stream().filter(container -> ccImage.equals(container.getImage())).findFirst().get();
+        assertThat(ccContainer.getImagePullPolicy(), is(ImagePullPolicy.ALWAYS.toString()));
 
         dep = cc.generateDeployment(null, true, ImagePullPolicy.IFNOTPRESENT, null);
-        assertThat(dep.getSpec().getTemplate().getSpec().getContainers().get(0).getImagePullPolicy(), is(ImagePullPolicy.IFNOTPRESENT.toString()));
+        containers = dep.getSpec().getTemplate().getSpec().getContainers();
+        ccContainer = containers.stream().filter(container -> ccImage.equals(container.getImage())).findFirst().get();
+        assertThat(ccContainer.getImagePullPolicy(), is(ImagePullPolicy.IFNOTPRESENT.toString()));
     }
 
     @Test
@@ -361,6 +379,120 @@ public class CruiseControlTest {
         Service svc = cc.generateService();
         assertThat(svc.getMetadata().getLabels().entrySet().containsAll(svcLabels.entrySet()), is(true));
         assertThat(svc.getMetadata().getAnnotations().entrySet().containsAll(svcAnots.entrySet()), is(true));
+    }
+
+    @Test
+    public void testPodDisruptionBudget() {
+        int maxUnavailable = 2;
+        CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder()
+                .withImage(ccImage)
+                    .withNewTemplate()
+                        .withNewPodDisruptionBudget()
+                        .withMaxUnavailable(maxUnavailable)
+                    .endPodDisruptionBudget()
+                .endTemplate()
+                .build();
+
+        Kafka resource =
+                new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
+                        .editSpec()
+                        .editKafka()
+                        .withVersion(version)
+                        .endKafka()
+                        .withCruiseControl(cruiseControlSpec)
+                        .endSpec()
+                        .build();
+
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
+        Deployment dep = cc.generateDeployment(null, true, null, null);
+        List<Container> containers = dep.getSpec().getTemplate().getSpec().getContainers();
+        Container ccContainer = containers.stream().filter(container -> ccImage.equals(container.getImage())).findFirst().get();
+
+        PodDisruptionBudget pdb = cc.generatePodDisruptionBudget();
+        assertThat(pdb.getSpec().getMaxUnavailable(), is(new IntOrString(maxUnavailable)));
+    }
+
+    @Test
+    public void testResources() {
+        Map<String, Quantity> requests = new HashMap<>(2);
+        requests.put("cpu", new Quantity("250m"));
+        requests.put("memory", new Quantity("512Mi"));
+
+        Map<String, Quantity> limits = new HashMap<>(2);
+        limits.put("cpu", new Quantity("500m"));
+        limits.put("memory", new Quantity("1024Mi"));
+
+        CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder()
+                .withImage(ccImage)
+                .withResources(new ResourceRequirementsBuilder().withLimits(limits).withRequests(requests).build())
+                .build();
+
+        Kafka resource =
+                new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
+                .editSpec()
+                    .editKafka()
+                        .withVersion(version)
+                    .endKafka()
+                    .withCruiseControl(cruiseControlSpec)
+                .endSpec()
+                .build();
+
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
+        Deployment dep = cc.generateDeployment(null, true, null, null);
+        List<Container> containers = dep.getSpec().getTemplate().getSpec().getContainers();
+        Container ccContainer = containers.stream().filter(container -> ccImage.equals(container.getImage())).findFirst().get();
+
+        assertThat(ccContainer.getResources().getLimits(), is(limits));
+        assertThat(ccContainer.getResources().getRequests(), is(requests));
+    }
+
+    @Test
+    public void testProbeConfiguration()   {
+        CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder()
+                .withImage(ccImage)
+                .withNewLivenessProbe()
+                        .withInitialDelaySeconds(healthDelay)
+                        .withTimeoutSeconds(healthTimeout)
+                        .withSuccessThreshold(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)
+                        .withFailureThreshold(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)
+                        .withPeriodSeconds(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)
+                .endLivenessProbe()
+                .withNewReadinessProbe()
+                       .withInitialDelaySeconds(healthDelay)
+                       .withTimeoutSeconds(healthTimeout)
+                       .withSuccessThreshold(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)
+                       .withFailureThreshold(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)
+                       .withPeriodSeconds(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)
+                .endReadinessProbe()
+                .build();
+
+        Kafka resource =
+                new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
+                .editSpec()
+                    .editKafka()
+                        .withVersion(version)
+                    .endKafka()
+                    .withCruiseControl(cruiseControlSpec)
+                .endSpec()
+                .build();
+
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
+        Deployment dep = cc.generateDeployment(null, true, null, null);
+        List<Container> containers = dep.getSpec().getTemplate().getSpec().getContainers();
+
+        // checks on the main Cruise Control container
+        Container ccContainer = containers.stream().filter(container -> ccImage.equals(container.getImage())).findFirst().get();
+        assertThat(ccContainer.getImage(), is(cc.image));
+        assertThat(ccContainer.getLivenessProbe().getInitialDelaySeconds(), is(new Integer(healthDelay)));
+        assertThat(ccContainer.getLivenessProbe().getTimeoutSeconds(), is(new Integer(healthTimeout)));
+        assertThat(ccContainer.getLivenessProbe().getFailureThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)));
+        assertThat(ccContainer.getLivenessProbe().getSuccessThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)));
+        assertThat(ccContainer.getLivenessProbe().getPeriodSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)));
+        assertThat(ccContainer.getReadinessProbe().getInitialDelaySeconds(), is(new Integer(healthDelay)));
+        assertThat(ccContainer.getReadinessProbe().getTimeoutSeconds(), is(new Integer(healthTimeout)));
+        assertThat(ccContainer.getReadinessProbe().getFailureThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)));
+        assertThat(ccContainer.getReadinessProbe().getSuccessThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)));
+        assertThat(ccContainer.getReadinessProbe().getPeriodSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)));
     }
 
     @AfterAll

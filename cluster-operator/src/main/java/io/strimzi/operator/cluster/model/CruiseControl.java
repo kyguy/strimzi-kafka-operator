@@ -62,11 +62,22 @@ public class CruiseControl extends AbstractModel {
 
     // Configuration defaults
     protected static final int DEFAULT_REPLICAS = 1;
+
+    // Default probe settings (liveness and readiness) for health checks
     protected static final int DEFAULT_HEALTHCHECK_DELAY = 15;
     protected static final int DEFAULT_HEALTHCHECK_TIMEOUT = 5;
+    protected static final int DEFAULT_HEALTHCHECK_SUCCESS = 4;
+    protected static final int DEFAULT_HEALTHCHECK_FAILURE = 10;
+    protected static final int DEFAULT_HEALTHCHECK_PERIOD = 33;
+
     public static final Probe DEFAULT_HEALTHCHECK_OPTIONS = new ProbeBuilder()
+            .withInitialDelaySeconds(DEFAULT_HEALTHCHECK_DELAY)
             .withTimeoutSeconds(DEFAULT_HEALTHCHECK_TIMEOUT)
-            .withInitialDelaySeconds(DEFAULT_HEALTHCHECK_DELAY).build();
+            .withSuccessThreshold(DEFAULT_HEALTHCHECK_SUCCESS)
+            .withFailureThreshold(DEFAULT_HEALTHCHECK_FAILURE)
+            .withPeriodSeconds(DEFAULT_HEALTHCHECK_PERIOD)
+            .build();
+
     private TlsSidecar tlsSidecar;
     private String tlsSidecarImage;
     private String minInsyncReplicas = "1";
