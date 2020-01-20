@@ -144,9 +144,7 @@ public class CruiseControl extends AbstractModel {
     }
 
     public static CruiseControl fromCrd(Kafka kafkaAssembly, KafkaVersion.Lookup versions) {
-        CruiseControl cruiseControl = new CruiseControl(kafkaAssembly.getMetadata().getNamespace(),
-                kafkaAssembly.getMetadata().getName(),
-                Labels.fromResource(kafkaAssembly).withKind(kafkaAssembly.getKind()));
+        CruiseControl cruiseControl = null;
         CruiseControlSpec spec  = kafkaAssembly.getSpec().getCruiseControl();
 
         if (spec != null) {

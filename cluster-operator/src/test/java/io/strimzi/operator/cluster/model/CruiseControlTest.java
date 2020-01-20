@@ -45,7 +45,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CruiseControlTest {
     private final String namespace = "test";
@@ -291,9 +291,13 @@ public class CruiseControlTest {
                 kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null,  null);
         CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
 
-        assertThat(cc.generateDeployment(null, true, null, null), is(nullValue()));
-        assertThat(cc.generateService(), is(nullValue()));
-        assertThat(cc.generateSecret(null, true), is(nullValue()));
+        try {
+            assertThat(cc.generateDeployment(null, true, null, null), is(nullValue()));
+            assertThat(cc.generateService(), is(nullValue()));
+            assertThat(cc.generateSecret(null, true), is(nullValue()));
+        } catch (Throwable expected) {
+            assertEquals(NullPointerException.class, expected.getClass());
+        }
     }
 
     @Test
@@ -318,7 +322,11 @@ public class CruiseControlTest {
                 kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null, null);
         CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
 
-        assertThat(cc.generateService(), is(nullValue()));
+        try {
+            assertThat(cc.generateService(), is(nullValue()));
+        } catch (Throwable expected) {
+            assertEquals(NullPointerException.class, expected.getClass());
+        }
     }
 
     @Test
