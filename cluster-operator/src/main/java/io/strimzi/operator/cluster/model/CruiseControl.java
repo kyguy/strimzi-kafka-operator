@@ -41,7 +41,6 @@ import io.strimzi.operator.common.Annotations;
 import io.strimzi.operator.common.model.Labels;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,6 +53,8 @@ public class CruiseControl extends AbstractModel {
     protected static final String TLS_SIDECAR_CC_CERTS_VOLUME_MOUNT = "/etc/tls-sidecar/cc-certs/";
     protected static final String TLS_SIDECAR_CA_CERTS_VOLUME_NAME = "cluster-ca-certs";
     protected static final String TLS_SIDECAR_CA_CERTS_VOLUME_MOUNT = "/etc/tls-sidecar/cluster-ca-certs/";
+    protected static final String LOG_AND_METRICS_CONFIG_VOLUME_NAME = "cruise-control-logging";
+    protected static final String LOG_AND_METRICS_CONFIG_VOLUME_MOUNT = "/opt/cruise-control/custom-config/";
 
     public static final String ANNO_STRIMZI_IO_LOGGING = Annotations.STRIMZI_DOMAIN + "/logging";
 
@@ -61,19 +62,30 @@ public class CruiseControl extends AbstractModel {
 
     // Configuration defaults
     protected static final int DEFAULT_REPLICAS = 1;
+
+    // Default probe settings (liveness and readiness) for health checks
     protected static final int DEFAULT_HEALTHCHECK_DELAY = 15;
     protected static final int DEFAULT_HEALTHCHECK_TIMEOUT = 5;
+    protected static final int DEFAULT_HEALTHCHECK_SUCCESS = 4;
+    protected static final int DEFAULT_HEALTHCHECK_FAILURE = 10;
+    protected static final int DEFAULT_HEALTHCHECK_PERIOD = 33;
+
     public static final Probe DEFAULT_HEALTHCHECK_OPTIONS = new ProbeBuilder()
+            .withInitialDelaySeconds(DEFAULT_HEALTHCHECK_DELAY)
             .withTimeoutSeconds(DEFAULT_HEALTHCHECK_TIMEOUT)
-            .withInitialDelaySeconds(DEFAULT_HEALTHCHECK_DELAY).build();
+            .withSuccessThreshold(DEFAULT_HEALTHCHECK_SUCCESS)
+            .withFailureThreshold(DEFAULT_HEALTHCHECK_FAILURE)
+            .withPeriodSeconds(DEFAULT_HEALTHCHECK_PERIOD)
+            .build();
+
     private TlsSidecar tlsSidecar;
     private String tlsSidecarImage;
     private String minInsyncReplicas = "1";
 
-    private static final String REST_API_PORT_NAME = "rest-api";
-    private static final int DEFAULT_REST_API_PORT = 9090;
+    public static final String REST_API_PORT_NAME = "rest-api";
+    public static final int REST_API_PORT = 9090;
     protected static final int DEFAULT_BOOTSTRAP_SERVERS_PORT = 9092;
-    private static final String MIN_INSYNC_REPLICAS = "min.insync.replicas";
+    public static final String MIN_INSYNC_REPLICAS = "min.insync.replicas";
 
 
     // Cruise Control configuration keys (EnvVariables)
@@ -108,8 +120,8 @@ public class CruiseControl extends AbstractModel {
         this.livenessProbeOptions = DEFAULT_HEALTHCHECK_OPTIONS;
         this.readinessProbeOptions = DEFAULT_HEALTHCHECK_OPTIONS;
         this.mountPath = "/var/lib/kafka";
-        this.logAndMetricsConfigVolumeName = "cruise-control-logging";
-        this.logAndMetricsConfigMountPath = "/opt/cruise-control/custom-config/";
+        this.logAndMetricsConfigVolumeName = LOG_AND_METRICS_CONFIG_VOLUME_NAME;
+        this.logAndMetricsConfigMountPath = LOG_AND_METRICS_CONFIG_VOLUME_MOUNT;
 
         this.zookeeperConnect = defaultZookeeperConnect(cluster);
         this.kafkaBootstrapServers = defaultBootstrapServers(cluster);
@@ -197,7 +209,7 @@ public class CruiseControl extends AbstractModel {
         CruiseControlConfiguration configuration = new CruiseControlConfiguration(spec.getConfig().entrySet());
         for (String key : CruiseControlConfiguration.CC_DEFAULT_PROPERTIES_MAP.keySet()) {
             if (configuration.getConfigOption(key) == null) {
-                configuration.setConfigOption(key, CruiseControlConfiguration.CC_DEFAULT_PROPERTIES_MAP.get(key));
+                configuration.setConfigOption(key, CruiseControlConfiguration.CC_DEFAULT_PROPERTIES_MAP.get(key).toString());
             }
         }
         cruiseControl.setConfiguration(configuration);
@@ -209,6 +221,16 @@ public class CruiseControl extends AbstractModel {
             CruiseControlTemplate template = spec.getTemplate();
 
             ModelUtils.parsePodTemplate(cruiseControl, template.getPod());
+
+            if (template.getDeployment() != null && template.getDeployment().getMetadata() != null) {
+                cruiseControl.templateDeploymentLabels = template.getDeployment().getMetadata().getLabels();
+                cruiseControl.templateDeploymentAnnotations = template.getDeployment().getMetadata().getAnnotations();
+            }
+
+            if (template.getApiService() != null && template.getApiService().getMetadata() != null) {
+                cruiseControl.templateServiceLabels = template.getApiService().getMetadata().getLabels();
+                cruiseControl.templateServiceAnnotations = template.getApiService().getMetadata().getAnnotations();
+            }
 
             if (template.getCruiseControlContainer() != null && template.getCruiseControlContainer().getEnv() != null) {
                 cruiseControl.templateCruiseControlContainerEnvVars = template.getCruiseControlContainer().getEnv();
@@ -255,17 +277,15 @@ public class CruiseControl extends AbstractModel {
         }
 
         List<ServicePort> ports = new ArrayList<>(1);
-        ports.add(createServicePort(REST_API_PORT_NAME, DEFAULT_REST_API_PORT, DEFAULT_REST_API_PORT, "TCP"));
-        Map<String, String> annotations = new HashMap<String, String>(1);
-        annotations.put("cruisecontrol/port", String.valueOf(DEFAULT_REST_API_PORT));
+        ports.add(createServicePort(REST_API_PORT_NAME, REST_API_PORT, REST_API_PORT, "TCP"));
 
-        return createService("ClusterIP", ports, annotations);
+        return createService("ClusterIP", ports, templateServiceAnnotations);
     }
 
     protected List<ContainerPort> getContainerPortList() {
         List<ContainerPort> portList = new ArrayList<>(1);
 
-        portList.add(createContainerPort(REST_API_PORT_NAME, DEFAULT_REST_API_PORT, "TCP"));
+        portList.add(createContainerPort(REST_API_PORT_NAME, REST_API_PORT, "TCP"));
 
         if (isMetricsEnabled) {
             portList.add(createContainerPort(METRICS_PORT_NAME, METRICS_PORT, "TCP"));
@@ -309,7 +329,7 @@ public class CruiseControl extends AbstractModel {
         return createDeployment(
                 updateStrategy,
                 Collections.emptyMap(),
-                annotations,
+                Collections.emptyMap(),
                 getMergedAffinity(),
                 getInitContainers(imagePullPolicy),
                 getContainers(imagePullPolicy),
