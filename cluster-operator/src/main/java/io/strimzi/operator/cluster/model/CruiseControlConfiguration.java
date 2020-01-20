@@ -82,6 +82,4 @@ public class CruiseControlConfiguration extends AbstractConfiguration {
     public static CruiseControlConfiguration unvalidated(String string) {
         return new CruiseControlConfiguration(string, emptyList());
     }
-
-
 }
