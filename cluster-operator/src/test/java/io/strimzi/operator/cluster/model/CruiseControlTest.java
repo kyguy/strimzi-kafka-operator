@@ -154,14 +154,8 @@ public class CruiseControlTest {
         assertThat(ccContainer.getImage(), is(cc.image));
         assertThat(ccContainer.getLivenessProbe().getInitialDelaySeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_DELAY)));
         assertThat(ccContainer.getLivenessProbe().getTimeoutSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_TIMEOUT)));
-        assertThat(ccContainer.getLivenessProbe().getFailureThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)));
-        assertThat(ccContainer.getLivenessProbe().getSuccessThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)));
-        assertThat(ccContainer.getLivenessProbe().getPeriodSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)));
         assertThat(ccContainer.getReadinessProbe().getInitialDelaySeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_DELAY)));
         assertThat(ccContainer.getReadinessProbe().getTimeoutSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_TIMEOUT)));
-        assertThat(ccContainer.getReadinessProbe().getFailureThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)));
-        assertThat(ccContainer.getReadinessProbe().getSuccessThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)));
-        assertThat(ccContainer.getReadinessProbe().getPeriodSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)));
         assertThat(ccContainer.getEnv(), is(getExpectedEnvVars()));
         assertThat(ccContainer.getPorts().size(), is(1));
         assertThat(ccContainer.getPorts().get(0).getName(), is(CruiseControl.REST_API_PORT_NAME));
@@ -461,16 +455,10 @@ public class CruiseControlTest {
                 .withNewLivenessProbe()
                         .withInitialDelaySeconds(healthDelay)
                         .withTimeoutSeconds(healthTimeout)
-                        .withSuccessThreshold(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)
-                        .withFailureThreshold(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)
-                        .withPeriodSeconds(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)
                 .endLivenessProbe()
                 .withNewReadinessProbe()
                        .withInitialDelaySeconds(healthDelay)
                        .withTimeoutSeconds(healthTimeout)
-                       .withSuccessThreshold(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)
-                       .withFailureThreshold(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)
-                       .withPeriodSeconds(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)
                 .endReadinessProbe()
                 .build();
 
@@ -493,14 +481,8 @@ public class CruiseControlTest {
         assertThat(ccContainer.getImage(), is(cc.image));
         assertThat(ccContainer.getLivenessProbe().getInitialDelaySeconds(), is(new Integer(healthDelay)));
         assertThat(ccContainer.getLivenessProbe().getTimeoutSeconds(), is(new Integer(healthTimeout)));
-        assertThat(ccContainer.getLivenessProbe().getFailureThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)));
-        assertThat(ccContainer.getLivenessProbe().getSuccessThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)));
-        assertThat(ccContainer.getLivenessProbe().getPeriodSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)));
         assertThat(ccContainer.getReadinessProbe().getInitialDelaySeconds(), is(new Integer(healthDelay)));
         assertThat(ccContainer.getReadinessProbe().getTimeoutSeconds(), is(new Integer(healthTimeout)));
-        assertThat(ccContainer.getReadinessProbe().getFailureThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_FAILURE)));
-        assertThat(ccContainer.getReadinessProbe().getSuccessThreshold(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_SUCCESS)));
-        assertThat(ccContainer.getReadinessProbe().getPeriodSeconds(), is(new Integer(CruiseControl.DEFAULT_HEALTHCHECK_PERIOD)));
     }
 
     @AfterAll
