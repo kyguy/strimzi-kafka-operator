@@ -1,0 +1,9 @@
+// This module is included in the following assemblies:
+//
+// assembly-cruise-control-concepts.adoc
+
+[id='proc-rebalance-cruise-control-{context}']
+= Interacting with the Cruise Control API
+
+TBD
+

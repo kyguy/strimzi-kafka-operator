@@ -1,0 +1,9 @@
+// This module is included in the following assemblies:
+//
+// assembly-cruise-control-concepts.adoc
+
+[id='proc-rebalancing-cruise-control-{context}']
+= Executing a Cluster Rebalance
+
+TBD
+
