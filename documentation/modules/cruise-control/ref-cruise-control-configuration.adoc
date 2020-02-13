@@ -33,7 +33,7 @@ Specifically, you are prevented from modifying all configuration options with ke
 * `sasl.`
 
 If the `config` property specifies a restricted option, it is ignored and a warning message is printed to the Cluster Operator log file.
-All other supported options are passed to Kafka.
+All other supported options are passed to Cruise Control.
 
 .An example Cruise Control configuration
 [source,yaml,subs="attributes+"]

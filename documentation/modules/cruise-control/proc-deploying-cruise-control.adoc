@@ -5,11 +5,11 @@
 [id='proc-deploying-cruise-control-{context}']
 = Deploying Cruise Control
 
-Deploy Cruise Control through the `Kafka` resource in the `cruiseControl` properties.
+Deploy Cruise Control through the `cruiseControl` property in the `Kafka` resource.
 
 Refer to the xref:ref-sample-kafka-resource-config-deployment-configuration-kafka[sample Kafka YAML configuration] for an overview of the `Kafka` resource and its properties.
 
-The properties relevant to the Cruise Control configuration are shown in this procedure.
+The properties relevant to the Cruise Control deployment are shown in this procedure.
 
 You can configure these properties as part of a deployment or redeployment of the Kafka cluster.
 
@@ -20,7 +20,7 @@ You can configure these properties as part of a deployment or redeployment of th
 
 .Procedure
 
-. Edit the `cruiseControl` properties for the `Kafka` resource.
+. Edit the `cruiseControl` property of the `Kafka` resource.
 +
 The properties you can configure are shown in this example configuration:
 +
