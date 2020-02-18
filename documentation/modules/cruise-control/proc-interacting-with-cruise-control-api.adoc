@@ -2,7 +2,7 @@
 //
 // assembly-cruise-control-concepts.adoc
 
-[id='proc-rebalance-cruise-control-{context}']
+[id='proc-interacting-with-cruise-control-api-{context}']
 = Interacting with the Cruise Control API
 
 TBD

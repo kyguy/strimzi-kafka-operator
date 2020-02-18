@@ -2,8 +2,8 @@
 //
 // assembly-cruise-control-concepts.adoc
 
-[id='proc-rebalancing-cruise-control-{context}']
-= Executing a Cluster Rebalance
+[id='proc-executing-cruise-control-rebalance-operations{context}']
+= Executing a cluster rebalance
 
 TBD
 
