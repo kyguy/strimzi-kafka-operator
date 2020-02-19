@@ -80,6 +80,13 @@ spec:
 kubectl apply -f _kafka.yaml_
 ----
 
+. Verify the Cruise Control deployment:
++
+[source,shell,subs="+quotes"]
+----
+kubectl get deployments -l app.kubernetes.io/name=strimzi
+----
+
 .What to do next
 
 After configuring and deploying Cruise Control, you can xref:proc-interacting-with-cruise-control-api-{context}[interact with the Cruise Control API]
