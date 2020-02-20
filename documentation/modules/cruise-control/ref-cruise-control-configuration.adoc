@@ -5,7 +5,7 @@
 [id='ref-cruise-control-configuration-{context}']
 = Cruise Control configuration
 
-The `config` property in `Kafka.spec.cruiseControl` contains configuration options as keys with values in one of the following JSON types:
+The `config` property in `Kafka.spec.cruiseControl` contains configuration options as keys with values as one of the following JSON types:
 
 * String
 * Number

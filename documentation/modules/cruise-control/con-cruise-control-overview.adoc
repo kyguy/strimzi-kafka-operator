@@ -11,7 +11,7 @@
 [id='con-cruise-control-overview-{context}']
 = Cruise Control overview
 
-Cruise Control is tool for simplifying the monitoring and rebalancing of partitions across a large-scale Kafka cluster.
+Cruise Control is a tool for simplifying the monitoring and rebalancing of partitions across a Kafka cluster.
 You deploy Cruise Control alongside a Kafka cluster to:
 
 * Monitor the CPU, disk, and network load of Kafka brokers.
