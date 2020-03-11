@@ -18,6 +18,7 @@ import io.fabric8.kubernetes.client.utils.Serialization;
 import io.strimzi.api.kafka.Crds;
 import io.strimzi.api.kafka.model.Kafka;
 import io.strimzi.api.kafka.model.KafkaBridge;
+import io.strimzi.api.kafka.model.KafkaClusterRebalance;
 import io.strimzi.api.kafka.model.KafkaConnect;
 import io.strimzi.api.kafka.model.KafkaConnectS2I;
 import io.strimzi.api.kafka.model.KafkaConnector;
@@ -82,6 +83,8 @@ public class CrdOperator<C extends KubernetesClient,
             this.plural = KafkaConnector.RESOURCE_PLURAL;
         } else if (cls.equals(KafkaMirrorMaker2.class)) {
             this.plural = KafkaMirrorMaker2.RESOURCE_PLURAL;
+        } else if (cls.equals(KafkaClusterRebalance.class)) {
+            this.plural = KafkaClusterRebalance.RESOURCE_PLURAL;
         } else {
             this.plural = null;
         }
@@ -90,6 +93,29 @@ public class CrdOperator<C extends KubernetesClient,
     @Override
     protected MixedOperation<T, L, D, Resource<T, D>> operation() {
         return Crds.operation(client, cls, listCls, doneableCls);
+    }
+
+    public Future<T> patchAsync(T resource) {
+        return patchAsync(resource, true);
+    }
+
+    public Future<T> patchAsync(T resource, boolean cascading) {
+        Promise<T> blockingPromise = Promise.promise();
+
+        vertx.createSharedWorkerExecutor("kubernetes-ops-pool").executeBlocking(future -> {
+            String namespace = resource.getMetadata().getNamespace();
+            String name = resource.getMetadata().getName();
+            try {
+                T result = operation().inNamespace(namespace).withName(name).cascading(cascading).patch(resource);
+                log.debug("{} {} in namespace {} has been patched", resourceKind, name, namespace);
+                future.complete(result);
+            } catch (Exception e) {
+                log.debug("Caught exception while patching {} {} in namespace {}", resourceKind, name, namespace, e);
+                future.fail(e);
+            }
+        }, true, blockingPromise);
+
+        return blockingPromise.future();
     }
 
     public Future<T> updateStatusAsync(T resource) {

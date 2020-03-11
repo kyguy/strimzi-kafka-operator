@@ -6,6 +6,7 @@ package io.strimzi.operator.cluster.operator.resource;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.strimzi.api.kafka.KafkaBridgeList;
+import io.strimzi.api.kafka.KafkaClusterRebalanceList;
 import io.strimzi.api.kafka.KafkaConnectList;
 import io.strimzi.api.kafka.KafkaConnectS2IList;
 import io.strimzi.api.kafka.KafkaConnectorList;
@@ -14,6 +15,7 @@ import io.strimzi.api.kafka.KafkaMirrorMaker2List;
 import io.strimzi.api.kafka.model.DoneableKafka;
 import io.strimzi.api.kafka.KafkaList;
 import io.strimzi.api.kafka.model.DoneableKafkaBridge;
+import io.strimzi.api.kafka.model.DoneableKafkaClusterRebalance;
 import io.strimzi.api.kafka.model.DoneableKafkaConnect;
 import io.strimzi.api.kafka.model.DoneableKafkaConnectS2I;
 import io.strimzi.api.kafka.model.DoneableKafkaConnector;
@@ -21,6 +23,7 @@ import io.strimzi.api.kafka.model.DoneableKafkaMirrorMaker;
 import io.strimzi.api.kafka.model.DoneableKafkaMirrorMaker2;
 import io.strimzi.api.kafka.model.KafkaBridge;
 import io.strimzi.api.kafka.model.Kafka;
+import io.strimzi.api.kafka.model.KafkaClusterRebalance;
 import io.strimzi.api.kafka.model.KafkaConnect;
 import io.strimzi.api.kafka.model.KafkaConnectS2I;
 import io.strimzi.api.kafka.model.KafkaConnector;
@@ -73,6 +76,7 @@ public class ResourceOperatorSupplier {
     public final CrdOperator<KubernetesClient, KafkaBridge, KafkaBridgeList, DoneableKafkaBridge> kafkaBridgeOperator;
     public final CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> kafkaConnectorOperator;
     public final CrdOperator<KubernetesClient, KafkaMirrorMaker2, KafkaMirrorMaker2List, DoneableKafkaMirrorMaker2> mirrorMaker2Operator;
+    public final CrdOperator<KubernetesClient, KafkaClusterRebalance, KafkaClusterRebalanceList, DoneableKafkaClusterRebalance> kafkaClusterRebalanceOperator;
     public final NetworkPolicyOperator networkPolicyOperator;
     public final PodDisruptionBudgetOperator podDisruptionBudgetOperator;
     public final PodOperator podOperations;
@@ -121,7 +125,8 @@ public class ResourceOperatorSupplier {
                 new CrdOperator<>(vertx, client, KafkaConnector.class, KafkaConnectorList.class, DoneableKafkaConnector.class),
                 new CrdOperator<>(vertx, client, KafkaMirrorMaker2.class, KafkaMirrorMaker2List.class, DoneableKafkaMirrorMaker2.class),
                 new StorageClassOperator(vertx, client, operationTimeoutMs),
-                new NodeOperator(vertx, client, operationTimeoutMs));
+                new NodeOperator(vertx, client, operationTimeoutMs),
+                new CrdOperator<>(vertx, client, KafkaClusterRebalance.class, KafkaClusterRebalanceList.class, DoneableKafkaClusterRebalance.class));
     }
 
     public ResourceOperatorSupplier(ServiceOperator serviceOperations,
@@ -150,7 +155,8 @@ public class ResourceOperatorSupplier {
                                     CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> kafkaConnectorOperator,
                                     CrdOperator<KubernetesClient, KafkaMirrorMaker2, KafkaMirrorMaker2List, DoneableKafkaMirrorMaker2> mirrorMaker2Operator,
                                     StorageClassOperator storageClassOperator,
-                                    NodeOperator nodeOperator) {
+                                    NodeOperator nodeOperator,
+                                    CrdOperator<KubernetesClient, KafkaClusterRebalance, KafkaClusterRebalanceList, DoneableKafkaClusterRebalance> kafkaClusterRebalanceOperator) {
         this.serviceOperations = serviceOperations;
         this.routeOperations = routeOperations;
         this.zkSetOperations = zkSetOperations;
@@ -178,5 +184,6 @@ public class ResourceOperatorSupplier {
         this.kafkaConnectorOperator = kafkaConnectorOperator;
         this.mirrorMaker2Operator = mirrorMaker2Operator;
         this.nodeOperator = nodeOperator;
+        this.kafkaClusterRebalanceOperator = kafkaClusterRebalanceOperator;
     }
 }
