@@ -124,9 +124,9 @@ public class ResourceOperatorSupplier {
                 new CrdOperator<>(vertx, client, KafkaBridge.class, KafkaBridgeList.class, DoneableKafkaBridge.class),
                 new CrdOperator<>(vertx, client, KafkaConnector.class, KafkaConnectorList.class, DoneableKafkaConnector.class),
                 new CrdOperator<>(vertx, client, KafkaMirrorMaker2.class, KafkaMirrorMaker2List.class, DoneableKafkaMirrorMaker2.class),
+                new CrdOperator<>(vertx, client, KafkaClusterRebalance.class, KafkaClusterRebalanceList.class, DoneableKafkaClusterRebalance.class),
                 new StorageClassOperator(vertx, client, operationTimeoutMs),
-                new NodeOperator(vertx, client, operationTimeoutMs),
-                new CrdOperator<>(vertx, client, KafkaClusterRebalance.class, KafkaClusterRebalanceList.class, DoneableKafkaClusterRebalance.class));
+                new NodeOperator(vertx, client, operationTimeoutMs));
     }
 
     public ResourceOperatorSupplier(ServiceOperator serviceOperations,
@@ -154,9 +154,9 @@ public class ResourceOperatorSupplier {
                                     CrdOperator<KubernetesClient, KafkaBridge, KafkaBridgeList, DoneableKafkaBridge> kafkaBridgeOperator,
                                     CrdOperator<KubernetesClient, KafkaConnector, KafkaConnectorList, DoneableKafkaConnector> kafkaConnectorOperator,
                                     CrdOperator<KubernetesClient, KafkaMirrorMaker2, KafkaMirrorMaker2List, DoneableKafkaMirrorMaker2> mirrorMaker2Operator,
+                                    CrdOperator<KubernetesClient, KafkaClusterRebalance, KafkaClusterRebalanceList, DoneableKafkaClusterRebalance> kafkaClusterRebalanceOperator,
                                     StorageClassOperator storageClassOperator,
-                                    NodeOperator nodeOperator,
-                                    CrdOperator<KubernetesClient, KafkaClusterRebalance, KafkaClusterRebalanceList, DoneableKafkaClusterRebalance> kafkaClusterRebalanceOperator) {
+                                    NodeOperator nodeOperator) {
         this.serviceOperations = serviceOperations;
         this.routeOperations = routeOperations;
         this.zkSetOperations = zkSetOperations;
