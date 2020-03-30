@@ -66,7 +66,7 @@ public class KafkaSpecCheckerTest {
     public void checkKafkaStorage() {
         Kafka kafka = new KafkaBuilder(ResourceUtils.createKafkaCluster(NAMESPACE, NAME, 1, IMAGE, HEALTH_DELAY, HEALTH_TIMEOUT,
             Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
-            new EphemeralStorage(), new EphemeralStorage(), null, null, null, null))
+            new EphemeralStorage(), new EphemeralStorage(), null, null, null, null, null))
                 .editSpec()
                     .editZookeeper()
                         .withReplicas(3)
@@ -89,7 +89,7 @@ public class KafkaSpecCheckerTest {
             Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
             new JbodStorageBuilder().withVolumes(new EphemeralStorageBuilder().withId(1).build(),
                                                  new EphemeralStorageBuilder().withId(2).build()).build(),
-            new EphemeralStorage(), null, null, null, null))
+            new EphemeralStorage(), null, null, null, null, null))
                 .editSpec()
                     .editZookeeper()
                         .withReplicas(3)
@@ -110,7 +110,7 @@ public class KafkaSpecCheckerTest {
     public void checkZookeeperStorage() {
         Kafka kafka = new KafkaBuilder(ResourceUtils.createKafkaCluster(NAMESPACE, NAME, 3, IMAGE, HEALTH_DELAY, HEALTH_TIMEOUT,
             Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
-            new EphemeralStorage(), new EphemeralStorage(), null, null, null, null))
+            new EphemeralStorage(), new EphemeralStorage(), null, null, null, null, null))
                 .editSpec()
                     .editZookeeper()
                         .withReplicas(1)
@@ -159,7 +159,7 @@ public class KafkaSpecCheckerTest {
         kafkaOptions.put(KafkaConfiguration.LOG_MESSAGE_FORMAT_VERSION, KafkaVersionTestUtils.PREVIOUS_FORMAT_VERSION);
         Kafka kafka = new KafkaBuilder(ResourceUtils.createKafkaCluster(NAMESPACE, NAME, 3, IMAGE, HEALTH_DELAY, HEALTH_TIMEOUT,
             Collections.emptyMap(), kafkaOptions, Collections.emptyMap(),
-            new EphemeralStorage(), new EphemeralStorage(), null, null, null, null))
+            new EphemeralStorage(), new EphemeralStorage(), null, null, null, null, null))
                 .editSpec()
                     .editKafka()
                         .withVersion(KafkaVersionTestUtils.LATEST_KAFKA_VERSION)
@@ -180,7 +180,7 @@ public class KafkaSpecCheckerTest {
     public void checkMultipleWarnings() {
         Kafka kafka = ResourceUtils.createKafkaCluster(NAMESPACE, NAME, 1, IMAGE, HEALTH_DELAY, HEALTH_TIMEOUT,
                 Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
-                new EphemeralStorage(), new EphemeralStorage(), null, null, null, null);
+                new EphemeralStorage(), new EphemeralStorage(), null, null, null, null, null);
         KafkaSpecChecker checker = generateChecker(kafka);
         List<Condition> warnings = checker.run();
         assertThat(warnings, hasSize(2));

@@ -125,7 +125,7 @@ public class KafkaExporterTest {
     public void testFromConfigMapDefaultConfig() {
         Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, null,
                 healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
-                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, new KafkaExporterSpec());
+                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, new KafkaExporterSpec(), null);
         KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
         assertThat(ke.getImage(), is(KafkaVersionTestUtils.DEFAULT_KAFKA_IMAGE));
         assertThat(ke.logging, is("info"));
@@ -234,7 +234,7 @@ public class KafkaExporterTest {
 
         Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image,
                 healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
-                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, exporterSpec);
+                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, exporterSpec, null);
         KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
 
         List<EnvVar> kafkaEnvVars = ke.getEnvVars();
@@ -270,7 +270,7 @@ public class KafkaExporterTest {
 
         Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image,
                 healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
-                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, exporterSpec);
+                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, exporterSpec, null);
         KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
 
         List<EnvVar> kafkaEnvVars = ke.getEnvVars();
@@ -282,7 +282,7 @@ public class KafkaExporterTest {
     public void testExporterNotDeployed() {
         Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image,
                 healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
-                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null);
+                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null, null);
         KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
 
         assertThat(ke.generateDeployment(true, null, null), is(nullValue()));
@@ -310,7 +310,7 @@ public class KafkaExporterTest {
     public void testGenerateServiceWhenDisabled()   {
         Kafka resource = ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image,
                 healthDelay, healthTimeout, metricsCm, kafkaConfig, zooConfig,
-                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null);
+                kafkaStorage, zkStorage, null, kafkaLogJson, zooLogJson, null, null);
         KafkaExporter ke = KafkaExporter.fromCrd(resource, VERSIONS);
 
         assertThat(ke.generateService(), is(nullValue()));
