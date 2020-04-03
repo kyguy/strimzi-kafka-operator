@@ -24,8 +24,9 @@ import io.strimzi.operator.cluster.model.InvalidResourceException;
 import io.strimzi.operator.cluster.model.NoSuchResourceException;
 import io.strimzi.operator.cluster.model.StatusDiff;
 import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlApi;
-import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlApiMockImpl;
+import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlApiImpl;
 import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlResponse;
+import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlUserTaskStatus;
 import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.RebalanceOptions;
 import io.strimzi.operator.cluster.operator.resource.ResourceOperatorSupplier;
 import io.strimzi.operator.common.AbstractOperator;
@@ -61,13 +62,6 @@ public class KafkaClusterRebalanceAssemblyOperator
     private final PlatformFeaturesAvailability pfa;
     private final Function<Vertx, CruiseControlApi> cruiseControlClientProvider;
 
-    private static final String CRUISE_CONTROL_TASK_IN_PROGRESS = "in-progress";
-    private static final String CRUISE_CONTROL_TASK_PENDING = "pending";
-    private static final String CRUISE_CONTROL_TASK_ABORTING = "aborting";
-    private static final String CRUISE_CONTROL_TASK_ABORTED = "aborted";
-    private static final String CRUISE_CONTROL_TASK_DEAD = "dead";
-    private static final String CRUISE_CONTROL_TASK_COMPLETED = "completed";
-
     /**
      * @param vertx The Vertx instance
      * @param pfa Platform features availability properties
@@ -75,7 +69,7 @@ public class KafkaClusterRebalanceAssemblyOperator
      */
     public KafkaClusterRebalanceAssemblyOperator(Vertx vertx, PlatformFeaturesAvailability pfa,
                                                  ResourceOperatorSupplier supplier) {
-        this(vertx, pfa, supplier, v -> new CruiseControlApiMockImpl(vertx));
+        this(vertx, pfa, supplier, v -> new CruiseControlApiImpl(vertx));
     }
 
     public KafkaClusterRebalanceAssemblyOperator(Vertx vertx, PlatformFeaturesAvailability pfa,
@@ -391,22 +385,21 @@ public class KafkaClusterRebalanceAssemblyOperator
                                     if (userTaskResult.succeeded()) {
                                         CruiseControlResponse response = userTaskResult.result();
                                         JsonObject taskStatusJson = response.getJson();
-                                        String taskStatus = taskStatusJson.getString("Status");
+                                        String taskStatusStr = taskStatusJson.getString("Status");
+                                        CruiseControlUserTaskStatus taskStatus = CruiseControlUserTaskStatus.lookup(taskStatusStr);
                                         switch (taskStatus) {
-                                            case CRUISE_CONTROL_TASK_COMPLETED:
+                                            case COMPLETED:
                                                 vertx.cancelTimer(t);
                                                 p.complete(new KafkaClusterRebalanceStatusBuilder()
                                                         .withSessionId(null)
                                                         .withOptimizationResult(taskStatusJson.getJsonObject("rebalance").getMap())
                                                         .addNewCondition().withType(State.ProposalReady.toString()).endCondition().build());
                                                 break;
-                                            case CRUISE_CONTROL_TASK_IN_PROGRESS:
-                                            case CRUISE_CONTROL_TASK_PENDING:
-                                            case CRUISE_CONTROL_TASK_ABORTING:
-                                                // just continue to do the periodic user task status request
+                                            case COMPLETED_WITH_ERROR:
+                                                // TODO: Add exception handling and update status?
                                                 break;
-                                            case CRUISE_CONTROL_TASK_ABORTED:
-                                            case CRUISE_CONTROL_TASK_DEAD:
+                                            case IN_EXECUTION: // Skip as still processing
+                                            case ACTIVE: // Skip as still processing
                                             default:
                                                 log.error("Unexpected state {}", taskStatus);
                                                 vertx.cancelTimer(t);
@@ -520,22 +513,21 @@ public class KafkaClusterRebalanceAssemblyOperator
                                     if (userTaskResult.succeeded()) {
                                         CruiseControlResponse response = userTaskResult.result();
                                         JsonObject taskStatusJson = response.getJson();
-                                        String taskStatus = taskStatusJson.getString("Status");
+                                        String taskStatusStr = taskStatusJson.getString("Status");
+                                        CruiseControlUserTaskStatus taskStatus = CruiseControlUserTaskStatus.lookup(taskStatusStr);
                                         switch (taskStatus) {
-                                            case CRUISE_CONTROL_TASK_COMPLETED:
+                                            case COMPLETED:
                                                 vertx.cancelTimer(t);
                                                 p.complete(new KafkaClusterRebalanceStatusBuilder()
                                                         .withSessionId(null)
                                                         .withOptimizationResult(taskStatusJson.getJsonObject("rebalance").getMap())
                                                         .addNewCondition().withType(State.Ready.toString()).endCondition().build());
                                                 break;
-                                            case CRUISE_CONTROL_TASK_IN_PROGRESS:
-                                            case CRUISE_CONTROL_TASK_PENDING:
-                                            case CRUISE_CONTROL_TASK_ABORTING:
-                                                // just continue to do the periodic user task status request
+                                            case COMPLETED_WITH_ERROR:
+                                                // TODO: Add exception handling and update status?
                                                 break;
-                                            case CRUISE_CONTROL_TASK_ABORTED:
-                                            case CRUISE_CONTROL_TASK_DEAD:
+                                            case IN_EXECUTION: // Skip as still processing
+                                            case ACTIVE: // Skip as still processing
                                             default:
                                                 log.error("Unexpected state {}", taskStatus);
                                                 vertx.cancelTimer(t);
