@@ -17,7 +17,7 @@
     </licenses>
 
     <properties>
-        <mockserver.version>5.8.1</mockserver.version>
+        <mockserver.version>5.10.0</mockserver.version>
     </properties>
 
 
@@ -168,6 +168,12 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-runtime</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
