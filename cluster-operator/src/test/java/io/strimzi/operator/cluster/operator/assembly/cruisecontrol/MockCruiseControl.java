@@ -4,10 +4,12 @@
  */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
+import org.mockserver.configuration.ConfigurationProperties;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 import org.mockserver.model.Parameter;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -17,7 +19,10 @@ import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.LogManager;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.mockserver.configuration.ConfigurationProperties.javaLoggerLogLevel;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 import static org.mockserver.model.Header.header;
@@ -49,6 +54,16 @@ public class MockCruiseControl {
      * @throws URISyntaxException If any of the configured end points are invalid.
      */
     public static ClientAndServer getCCServer(int port, int pendingCalls) throws IOException, URISyntaxException {
+        ConfigurationProperties.logLevel("WARN");
+        String loggingConfiguration = "" +
+                "handlers=org.mockserver.logging.StandardOutConsoleHandler\n" +
+                "org.mockserver.logging.StandardOutConsoleHandler.level=WARNING\n" +
+                "org.mockserver.logging.StandardOutConsoleHandler.formatter=java.util.logging.SimpleFormatter\n" +
+                "java.util.logging.SimpleFormatter.format=%1$tF %1$tT  %3$s  %4$s  %5$s %6$s%n\n" +
+                ".level=" + javaLoggerLogLevel() + "\n" +
+                "io.netty.handler.ssl.SslHandler.level=WARNING";
+        LogManager.getLogManager().readConfiguration(new ByteArrayInputStream(loggingConfiguration.getBytes(UTF_8)));
+
         ClientAndServer ccServer = new ClientAndServer(port);
         setupTestResponse(ccServer);
         setupCCStateResponse(ccServer);
@@ -61,7 +76,7 @@ public class MockCruiseControl {
 
         URI jsonURI = Objects.requireNonNull(MockCruiseControl.class.getClassLoader().getResource(resource)).toURI();
 
-        Optional<String> json = Files.lines(Paths.get(jsonURI), StandardCharsets.UTF_8).reduce((x, y) -> x + y);
+        Optional<String> json = Files.lines(Paths.get(jsonURI), UTF_8).reduce((x, y) -> x + y);
 
         if (json.isPresent()) {
             return json.get();
