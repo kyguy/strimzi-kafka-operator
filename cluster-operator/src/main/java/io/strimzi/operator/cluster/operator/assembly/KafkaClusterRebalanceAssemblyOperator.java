@@ -52,7 +52,7 @@ public class KafkaClusterRebalanceAssemblyOperator
 
     private static final Logger log = LogManager.getLogger(KafkaClusterRebalanceAssemblyOperator.class.getName());
 
-    public static final String ANNO_STRIMZI_IO_REBALANCE = Annotations.STRIMZI_DOMAIN + "/rebalance";
+    public static final String ANNO_STRIMZI_IO_REBALANCE = Annotations.STRIMZI_DOMAIN + "rebalance";
     private static final long REBALANCE_TASK_STATUS_TIMER_MS = 5_000;
 
     private final CrdOperator<KubernetesClient, KafkaClusterRebalance, KafkaClusterRebalanceList, DoneableKafkaClusterRebalance> clusterRebalanceOperator;
