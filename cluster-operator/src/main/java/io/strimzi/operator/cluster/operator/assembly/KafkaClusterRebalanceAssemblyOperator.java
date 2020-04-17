@@ -19,6 +19,7 @@ import io.strimzi.api.kafka.model.KafkaClusterRebalanceBuilder;
 import io.strimzi.api.kafka.model.status.KafkaClusterRebalanceStatus;
 import io.strimzi.api.kafka.model.status.KafkaClusterRebalanceStatusBuilder;
 import io.strimzi.operator.PlatformFeaturesAvailability;
+import io.strimzi.operator.cluster.model.CruiseControl;
 import io.strimzi.operator.cluster.model.InvalidResourceException;
 import io.strimzi.operator.cluster.model.NoSuchResourceException;
 import io.strimzi.operator.cluster.model.StatusDiff;
@@ -374,7 +375,7 @@ public class KafkaClusterRebalanceAssemblyOperator
                             if (getRebalanceAnnotation(freshClusterRebalance) == RebalanceAnnotation.stop) {
                                 log.debug("{}: Stopping current Cruise Control rebalance user task", reconciliation);
                                 vertx.cancelTimer(t);
-                                apiClient.stopExecution(host, 9090 /* TODO: need public constant from CruiseControl model */).setHandler(stopResult -> {
+                                apiClient.stopExecution(host, CruiseControl.REST_API_PORT).setHandler(stopResult -> {
                                     if (stopResult.succeeded()) {
                                         p.complete(new KafkaClusterRebalanceStatusBuilder()
                                                 .withSessionId(null)
@@ -386,7 +387,7 @@ public class KafkaClusterRebalanceAssemblyOperator
                                 });
                             } else {
                                 log.debug("{}: Getting Cruise Control rebalance user task status", reconciliation);
-                                apiClient.getUserTaskStatus(host, 9090 /* TODO: need public constant from CruiseControl model */, sessionId).setHandler(userTaskResult -> {
+                                apiClient.getUserTaskStatus(host, CruiseControl.REST_API_PORT, sessionId).setHandler(userTaskResult -> {
                                     if (userTaskResult.succeeded()) {
                                         CruiseControlResponse response = userTaskResult.result();
                                         JsonObject taskStatusJson = response.getJson();
@@ -503,7 +504,7 @@ public class KafkaClusterRebalanceAssemblyOperator
                             if (getRebalanceAnnotation(freshClusterRebalance) == RebalanceAnnotation.stop) {
                                 log.debug("{}: Stopping current Cruise Control rebalance user task", reconciliation);
                                 vertx.cancelTimer(t);
-                                apiClient.stopExecution(host, 9090 /* TODO: need public constant from CruiseControl model */).setHandler(stopResult -> {
+                                apiClient.stopExecution(host, CruiseControl.REST_API_PORT).setHandler(stopResult -> {
                                     if (stopResult.succeeded()) {
                                         p.complete(new KafkaClusterRebalanceStatusBuilder()
                                                 .withSessionId(null)
@@ -515,7 +516,7 @@ public class KafkaClusterRebalanceAssemblyOperator
                                 });
                             } else {
                                 log.info("{}: Getting Cruise Control rebalance user task status", reconciliation);
-                                apiClient.getUserTaskStatus(host, 9090 /* TODO: need public constant from CruiseControl model */, sessionId).setHandler(userTaskResult -> {
+                                apiClient.getUserTaskStatus(host, CruiseControl.REST_API_PORT, sessionId).setHandler(userTaskResult -> {
                                     if (userTaskResult.succeeded()) {
                                         CruiseControlResponse response = userTaskResult.result();
                                         JsonObject taskStatusJson = response.getJson();
@@ -622,7 +623,7 @@ public class KafkaClusterRebalanceAssemblyOperator
         }
         State ready = dryrun ? State.ProposalReady : State.Ready;
         State inprogress = dryrun ? State.PendingProposal : State.Rebalancing;
-        return apiClient.rebalance(host, 9090 /* TODO: need public constant from CruiseControl model */, rebalanceOptionsBuilder.build())
+        return apiClient.rebalance(host, CruiseControl.REST_API_PORT, rebalanceOptionsBuilder.build())
                 .map(response -> {
                     if (response.getJson() != null) {
                         return new KafkaClusterRebalanceStatusBuilder()
