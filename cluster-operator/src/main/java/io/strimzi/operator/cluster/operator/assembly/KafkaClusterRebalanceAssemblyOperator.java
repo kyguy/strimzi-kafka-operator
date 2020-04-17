@@ -158,11 +158,11 @@ public class KafkaClusterRebalanceAssemblyOperator
                                                     KafkaClusterRebalanceStatus desiredStatus,
                                                     CrdOperator<KubernetesClient, KafkaClusterRebalance, KafkaClusterRebalanceList, DoneableKafkaClusterRebalance> clusterRebalanceOperations,
                                                     Throwable e) {
-        String type = desiredStatus.getConditions().get(0).getType();
         if (e != null) {
             StatusUtils.setStatusConditionAndObservedGeneration(clusterRebalance, desiredStatus, e);
-        } else if (type != null) {
-            StatusUtils.setStatusConditionAndObservedGeneration(clusterRebalance, desiredStatus, type);
+        } else if (desiredStatus.getConditions() != null && desiredStatus.getConditions().get(0).getType() != null) {
+            StatusUtils.setStatusConditionAndObservedGeneration(clusterRebalance, desiredStatus,
+                    desiredStatus.getConditions().get(0).getType());
         } else {
             throw new IllegalArgumentException("Status related exception and type cannot be both null");
         }
