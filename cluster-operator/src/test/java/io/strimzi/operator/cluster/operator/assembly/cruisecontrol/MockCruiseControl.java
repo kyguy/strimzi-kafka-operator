@@ -4,9 +4,11 @@
  */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
+import com.sun.org.apache.regexp.internal.RE;
 import org.mockserver.configuration.ConfigurationProperties;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
+import org.mockserver.model.Header;
 import org.mockserver.model.Parameter;
 
 import java.io.ByteArrayInputStream;
@@ -32,6 +34,7 @@ public class MockCruiseControl {
 
     private static final String SEP =  "-";
     private static final String REBALANCE =  "rebalance";
+    private static final String STATE =  "rebalance";
     private static final String NO_GOALS =  "no-goals";
     private static final String VERBOSE =  "verbose";
     private static final String USER_TASK =  "user-task";
@@ -43,6 +46,10 @@ public class MockCruiseControl {
     public static final String USER_TASK_REBALANCE_NO_GOALS_VERBOSE_UTID = USER_TASK_REBALANCE_NO_GOALS + SEP + VERBOSE;
     public static final String USER_TASK_REBALANCE_NO_GOALS_RESPONSE_UTID = USER_TASK_REBALANCE_NO_GOALS + SEP + RESPONSE;
     public static final String USER_TASK_REBALANCE_NO_GOALS_VERBOSE_RESPONSE_UTID = USER_TASK_REBALANCE_NO_GOALS_VERBOSE_UTID + SEP + RESPONSE;
+    public static final String REBALANCE_ERROR = REBALANCE + SEP + "error";
+    public static final String REBALANCE_ERROR_RESPONSE_UTID = REBALANCE_ERROR + SEP + RESPONSE;
+    public static final String STATE_PROPOSAL_NOT_READY = STATE + SEP + "proposal" + SEP + "not" + SEP + "ready";
+    public static final String STATE_PROPOSAL_NOT_READY_RESPONSE = STATE_PROPOSAL_NOT_READY + SEP + RESPONSE;
 
     /**
      * Sets up and returns the Cruise Control MockSever
@@ -83,6 +90,24 @@ public class MockCruiseControl {
     public static void setupCCStateResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
 
         // Non-verbose response
+        String jsonProposalNotReady = getJsonFromResource("CC-State-proposal-not-ready.json");
+
+        ccServer
+                .when(
+                        request()
+                                .withMethod("GET")
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.JSON.key, "true|false"))
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.VERBOSE.key, "true|false"))
+                                .withPath(CruiseControlEndpoints.STATE.path)
+                                .withHeaders(header(CruiseControlApi.USER_ID_HEADER, STATE_PROPOSAL_NOT_READY)))
+                .respond(
+                        response()
+                                .withBody(jsonProposalNotReady)
+                                .withHeaders(header("User-Task-ID", STATE_PROPOSAL_NOT_READY_RESPONSE))
+                                .withDelay(TimeUnit.SECONDS, RESPONSE_DELAY_SEC));
+
+
+        // Non-verbose response
         String json = getJsonFromResource("CC-State.json");
 
         ccServer
@@ -90,6 +115,7 @@ public class MockCruiseControl {
                         request()
                                 .withMethod("GET")
                                 .withQueryStringParameter(Parameter.param(CruiseControlParameters.JSON.key, "true"))
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.VERBOSE.key, "false"))
                                 .withPath(CruiseControlEndpoints.STATE.path))
                 .respond(
                         response()
@@ -116,6 +142,25 @@ public class MockCruiseControl {
     }
 
     public static void setupCCRebalanceResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
+
+        // Rebalance response with no goal that returns an error
+        String jsonError = getJsonFromResource("CC-Rebalance-NotEnoughValidWindows-error.json");
+
+        ccServer
+                .when(
+                        request()
+                                .withMethod("POST")
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.JSON.key, "true"))
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.DRY_RUN.key, "true|false"))
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.VERBOSE.key, "true|false"))
+                                .withPath(CruiseControlEndpoints.REBALANCE.path)
+                                .withHeaders(header(CruiseControlApi.USER_ID_HEADER, REBALANCE_ERROR)))
+
+                .respond(
+                        response()
+                                .withBody(jsonError)
+                                .withHeaders(header(CruiseControlApi.USER_ID_HEADER, REBALANCE_ERROR_RESPONSE_UTID))
+                                .withDelay(TimeUnit.SECONDS, RESPONSE_DELAY_SEC));
 
         // Rebalance response with no goals set - non-verbose
         String json = getJsonFromResource("CC-Rebalance-no-goals.json");
@@ -150,6 +195,8 @@ public class MockCruiseControl {
                                 .withBody(jsonVerbose)
                                 .withHeaders(header("User-Task-ID", REBALANCE_NO_GOALS_VERBOSE_RESPONSE_UTID))
                                 .withDelay(TimeUnit.SECONDS, RESPONSE_DELAY_SEC));
+
+
 
     }
 

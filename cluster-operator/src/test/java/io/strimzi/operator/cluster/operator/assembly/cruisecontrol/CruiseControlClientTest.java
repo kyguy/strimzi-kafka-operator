@@ -59,6 +59,34 @@ public class CruiseControlClientTest {
     }
 
     @Test
+    public void testProposalReady(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        MockCruiseControl.setupCCStateResponse(ccServer);
+
+        CruiseControlApi client = new CruiseControlApiImpl(vertx);
+
+        client.isProposalReady(HOST, PORT).setHandler(
+                context.succeeding(result -> {
+                    context.verify(() -> assertThat(result, is(true)));
+                    context.completeNow();
+                }));
+    }
+
+    @Test
+    public void testProposalNotReady(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        MockCruiseControl.setupCCStateResponse(ccServer);
+
+        CruiseControlApiImpl client = new CruiseControlApiImpl(vertx);
+
+        client.isProposalReady(HOST, PORT, MockCruiseControl.STATE_PROPOSAL_NOT_READY).setHandler(
+                context.succeeding(result -> {
+                    context.verify(() -> assertThat(result, is(false)));
+                    context.completeNow();
+                }));
+    }
+
+    @Test
     public void testCCRebalance(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
 
         MockCruiseControl.setupCCRebalanceResponse(ccServer);
@@ -74,8 +102,6 @@ public class CruiseControlClientTest {
             context.verify(() -> assertThat(result.getJson().containsKey("loadAfterOptimization"), is(true)));
             context.completeNow();
         }));
-
-
     }
 
     @Test
@@ -98,6 +124,25 @@ public class CruiseControlClientTest {
         }));
     }
 
+    @Test
+    public void testCCRebalanceError(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        MockCruiseControl.setupCCRebalanceResponse(ccServer);
+
+        RebalanceOptions rbOptions = new RebalanceOptions.RebalanceOptionsBuilder().build();
+
+        CruiseControlApiImpl client = new CruiseControlApiImpl(vertx);
+
+        client.rebalance(HOST, PORT, rbOptions, MockCruiseControl.REBALANCE_ERROR)
+                .setHandler(result -> {
+                    if (result.succeeded()) {
+                        System.err.println(result.result().prettyPrint());
+                        context.failNow(new RuntimeException("The request to the mock sever with the REBALANCE_ERROR header should fail"));
+                    } else {
+                        context.completeNow();
+                    }
+                });
+    }
 
     @Test
     public void testCCGetRebalanceUserTask(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {

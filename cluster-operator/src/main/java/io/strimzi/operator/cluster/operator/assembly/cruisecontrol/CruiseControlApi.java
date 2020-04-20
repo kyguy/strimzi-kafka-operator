@@ -14,6 +14,7 @@ public interface CruiseControlApi {
     String USER_ID_HEADER = "User-Task-ID";
 
     Future<CruiseControlResponse> getCruiseControlState(String host, int port, boolean verbose);
+    Future<Boolean> isProposalReady(String host, int port);
     Future<CruiseControlResponse> rebalance(String host, int port, RebalanceOptions options);
     Future<CruiseControlResponse> getUserTaskStatus(String host, int port, String userTaskId);
     Future<CruiseControlResponse> stopExecution(String host, int port);
