@@ -33,6 +33,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockserver.integration.ClientAndServer;
@@ -61,7 +62,7 @@ public class KafkaClusterRebalanceAssemblyOperatorTest {
 
     @BeforeAll
     public static void before() throws IOException, URISyntaxException {
-        ccServer = MockCruiseControl.getCCServer(CruiseControl.REST_API_PORT, 0);
+        ccServer = MockCruiseControl.getCCServer(CruiseControl.REST_API_PORT);
     }
 
     @AfterAll
@@ -69,10 +70,17 @@ public class KafkaClusterRebalanceAssemblyOperatorTest {
         ccServer.stop();
     }
 
-    @Test
-    public void testNewRebalance(Vertx vertx, VertxTestContext context) {
+    @BeforeEach
+    public void resetServer() {
+        ccServer.reset();
+    }
 
-        KafkaClusterRebalanceBuilder kcrBuilder = new KafkaClusterRebalanceBuilder();
+    @Test
+    public void testNewRebalance(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        // Setup the rebalance user tasks endpoints with the number of pending calls before a response is received.
+        MockCruiseControl.setupCCRebalanceResponse(ccServer);
+        MockCruiseControl.setupCCUserTasksResponse(ccServer, 0);
 
         Map<String, String> labels = new HashMap<>();
         labels.put(Labels.STRIMZI_CLUSTER_LABEL, "my-test-cluster");
@@ -82,6 +90,8 @@ public class KafkaClusterRebalanceAssemblyOperatorTest {
 
         Condition newRebalanceCondition = new Condition();
         newRebalanceCondition.setType(String.valueOf(KafkaClusterRebalanceAssemblyOperator.State.New));
+
+        KafkaClusterRebalanceBuilder kcrBuilder = new KafkaClusterRebalanceBuilder();
 
         KafkaClusterRebalance kcRebalance = kcrBuilder
                 .withMetadata(meta)

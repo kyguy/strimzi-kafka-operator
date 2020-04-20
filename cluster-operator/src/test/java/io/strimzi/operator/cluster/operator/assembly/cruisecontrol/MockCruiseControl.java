@@ -28,7 +28,7 @@ import static org.mockserver.model.Header.header;
 
 public class MockCruiseControl {
 
-    private static final int RESPONSE_DELAY_SEC = 2;
+    private static final int RESPONSE_DELAY_SEC = 1;
 
     private static final String SEP =  "-";
     private static final String REBALANCE =  "rebalance";
@@ -47,12 +47,11 @@ public class MockCruiseControl {
     /**
      * Sets up and returns the Cruise Control MockSever
      * @param port The port number the MockServer instance should listen on
-     * @param pendingCalls The number of calls to the User Tasks endpoint that should return "InExecution" before "Completed" is returned as the status.
      * @return The configured ClientAndServer instance.
      * @throws IOException If there are issues connecting to the network port.
      * @throws URISyntaxException If any of the configured end points are invalid.
      */
-    public static ClientAndServer getCCServer(int port, int pendingCalls) throws IOException, URISyntaxException {
+    public static ClientAndServer getCCServer(int port) throws IOException, URISyntaxException {
         ConfigurationProperties.logLevel("WARN");
         String loggingConfiguration = "" +
                 "handlers=org.mockserver.logging.StandardOutConsoleHandler\n" +
@@ -64,10 +63,6 @@ public class MockCruiseControl {
         LogManager.getLogManager().readConfiguration(new ByteArrayInputStream(loggingConfiguration.getBytes(UTF_8)));
 
         ClientAndServer ccServer = new ClientAndServer(port);
-        setupTestResponse(ccServer);
-        setupCCStateResponse(ccServer);
-        setupCCRebalanceResponse(ccServer);
-        setupCCUserTasksResponse(ccServer, pendingCalls);
         return ccServer;
     }
 
@@ -85,12 +80,7 @@ public class MockCruiseControl {
 
     }
 
-    private static void setupTestResponse(ClientAndServer ccServer) {
-        ccServer.when(request().withMethod("GET").withPath("/test"))
-                .respond(response().withBody("Was this what you wanted?"));
-    }
-
-    private static void setupCCStateResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
+    public static void setupCCStateResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
 
         // Non-verbose response
         String json = getJsonFromResource("CC-State.json");
@@ -125,7 +115,7 @@ public class MockCruiseControl {
 
     }
 
-    private static void setupCCRebalanceResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
+    public static void setupCCRebalanceResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
 
         // Rebalance response with no goals set - non-verbose
         String json = getJsonFromResource("CC-Rebalance-no-goals.json");
@@ -171,7 +161,7 @@ public class MockCruiseControl {
      * @throws IOException If there are issues connecting to the network port.
      * @throws URISyntaxException If any of the configured end points are invalid.
      */
-    private static void setupCCUserTasksResponse(ClientAndServer ccServer, int pendingCalls) throws IOException, URISyntaxException {
+    public static void setupCCUserTasksResponse(ClientAndServer ccServer, int pendingCalls) throws IOException, URISyntaxException {
 
         // User tasks response for the rebalance request with no goals set (non-verbose)
         String jsonInExecution = getJsonFromResource("CC-User-task-rebalance-no-goals-inExecution.json");

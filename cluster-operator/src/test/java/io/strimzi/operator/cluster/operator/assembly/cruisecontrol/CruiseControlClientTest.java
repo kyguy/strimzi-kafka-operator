@@ -9,6 +9,7 @@ import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockserver.integration.ClientAndServer;
@@ -29,7 +30,7 @@ public class CruiseControlClientTest {
 
     @BeforeAll
     public static void setupServer() throws IOException, URISyntaxException {
-        ccServer = MockCruiseControl.getCCServer(PORT, 2);
+        ccServer = MockCruiseControl.getCCServer(PORT);
     }
 
     @AfterAll
@@ -37,8 +38,15 @@ public class CruiseControlClientTest {
         ccServer.stop();
     }
 
+    @BeforeEach
+    public void resetServer() {
+        ccServer.reset();
+    }
+
     @Test
-    public void testGetCCState(Vertx vertx, VertxTestContext context) {
+    public void testGetCCState(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        MockCruiseControl.setupCCStateResponse(ccServer);
 
         CruiseControlApi client = new CruiseControlApiImpl(vertx);
 
@@ -51,7 +59,9 @@ public class CruiseControlClientTest {
     }
 
     @Test
-    public void testCCRebalance(Vertx vertx, VertxTestContext context) {
+    public void testCCRebalance(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        MockCruiseControl.setupCCRebalanceResponse(ccServer);
 
         RebalanceOptions rbOptions = new RebalanceOptions.RebalanceOptionsBuilder().build();
 
@@ -69,7 +79,9 @@ public class CruiseControlClientTest {
     }
 
     @Test
-    public void testCCRebalanceVerbose(Vertx vertx, VertxTestContext context) {
+    public void testCCRebalanceVerbose(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        MockCruiseControl.setupCCRebalanceResponse(ccServer);
 
         RebalanceOptions rbOptions = new RebalanceOptions.RebalanceOptionsBuilder().withVerboseResponse().build();
 
@@ -88,7 +100,9 @@ public class CruiseControlClientTest {
 
 
     @Test
-    public void testCCGetRebalanceUserTask(Vertx vertx, VertxTestContext context) {
+    public void testCCGetRebalanceUserTask(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        MockCruiseControl.setupCCUserTasksResponse(ccServer, 0);
 
         CruiseControlApi client = new CruiseControlApiImpl(vertx);
         String userTaskID = MockCruiseControl.REBALANCE_NO_GOALS_RESPONSE_UTID;
@@ -103,7 +117,9 @@ public class CruiseControlClientTest {
     }
 
     @Test
-    public void testCCGetRebalanceVerboseUserTask(Vertx vertx, VertxTestContext context) {
+    public void testCCGetRebalanceVerboseUserTask(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        MockCruiseControl.setupCCUserTasksResponse(ccServer, 0);
 
         CruiseControlApi client = new CruiseControlApiImpl(vertx);
         String userTaskID = MockCruiseControl.REBALANCE_NO_GOALS_VERBOSE_RESPONSE_UTID;
