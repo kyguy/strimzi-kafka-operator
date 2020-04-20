@@ -78,23 +78,23 @@ public class KafkaClusterRebalanceAssemblyOperator
      * @param vertx The Vertx instance
      * @param pfa Platform features availability properties
      * @param supplier Supplies the operators for different resources
-     * @param host Optional host address for the Cruise Control REST API. If this is not supplied then Cruise Control
+     * @param ccHost Optional host address for the Cruise Control REST API. If this is not supplied then Cruise Control
      *             service address will be used. This parameter is intended for use in testing.
      */
     public KafkaClusterRebalanceAssemblyOperator(Vertx vertx, PlatformFeaturesAvailability pfa,
-                                                 ResourceOperatorSupplier supplier, String host) {
-        this(vertx, pfa, supplier, v -> new CruiseControlApiImpl(vertx), host);
+                                                 ResourceOperatorSupplier supplier, String ccHost) {
+        this(vertx, pfa, supplier, v -> new CruiseControlApiImpl(vertx), ccHost);
     }
 
     public KafkaClusterRebalanceAssemblyOperator(Vertx vertx, PlatformFeaturesAvailability pfa,
                                                  ResourceOperatorSupplier supplier,
-                                                 Function<Vertx, CruiseControlApi> cruiseControlClientProvider, String host) {
+                                                 Function<Vertx, CruiseControlApi> cruiseControlClientProvider, String ccHost) {
         super(vertx, KafkaClusterRebalance.RESOURCE_KIND, supplier.kafkaClusterRebalanceOperator);
         this.pfa = pfa;
         this.clusterRebalanceOperator = supplier.kafkaClusterRebalanceOperator;
         this.kafkaOperator = supplier.kafkaOperator;
         this.cruiseControlClientProvider = cruiseControlClientProvider;
-        this.ccHost = host;
+        this.ccHost = ccHost;
     }
 
     /**
@@ -418,7 +418,9 @@ public class KafkaClusterRebalanceAssemblyOperator
                                                 // TODO: Add exception handling and update status?
                                                 break;
                                             case IN_EXECUTION: // Skip as still processing
+                                                break;
                                             case ACTIVE: // Skip as still processing
+                                                break;
                                             default:
                                                 log.error("Unexpected state {}", taskStatus);
                                                 vertx.cancelTimer(t);
@@ -546,7 +548,9 @@ public class KafkaClusterRebalanceAssemblyOperator
                                                 // TODO: Add exception handling and update status?
                                                 break;
                                             case IN_EXECUTION: // Skip as still processing
+                                                break;
                                             case ACTIVE: // Skip as still processing
+                                                break;
                                             default:
                                                 log.error("Unexpected state {}", taskStatus);
                                                 vertx.cancelTimer(t);
