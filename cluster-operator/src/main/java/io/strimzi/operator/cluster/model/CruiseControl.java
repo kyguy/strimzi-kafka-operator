@@ -92,7 +92,7 @@ public class CruiseControl extends AbstractModel {
 
     public static final String REST_API_PORT_NAME = "rest-api";
     public static final int REST_API_PORT = 9090;
-    protected static final int DEFAULT_BOOTSTRAP_SERVERS_PORT = 9092;
+    protected static final int DEFAULT_BOOTSTRAP_SERVERS_PORT = 9091;
     public static final String MIN_INSYNC_REPLICAS = "min.insync.replicas";
 
     // Cruise Control configuration keys (EnvVariables)

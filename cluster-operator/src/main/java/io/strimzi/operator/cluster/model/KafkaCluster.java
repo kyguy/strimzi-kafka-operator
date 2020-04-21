@@ -2046,11 +2046,18 @@ public class KafkaCluster extends AbstractModel {
                     .endPodSelector()
                     .build();
 
+            NetworkPolicyPeer cruiseControlPeer = new NetworkPolicyPeerBuilder()
+                    .withNewPodSelector() // cruise control
+                    .addToMatchLabels(Labels.STRIMZI_NAME_LABEL, CruiseControl.cruiseControlName(cluster))
+                    .endPodSelector()
+                    .build();
+
             List<NetworkPolicyPeer> clientsPortPeers = new ArrayList<>(4);
             clientsPortPeers.add(clusterOperatorPeer);
             clientsPortPeers.add(kafkaClusterPeer);
             clientsPortPeers.add(entityOperatorPeer);
             clientsPortPeers.add(kafkaExporterPeer);
+            clientsPortPeers.add(cruiseControlPeer);
 
             replicationRule.setFrom(clientsPortPeers);
         }
