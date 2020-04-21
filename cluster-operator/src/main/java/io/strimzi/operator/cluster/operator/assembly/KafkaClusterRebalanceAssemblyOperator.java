@@ -24,8 +24,9 @@ import io.strimzi.operator.cluster.model.InvalidResourceException;
 import io.strimzi.operator.cluster.model.NoSuchResourceException;
 import io.strimzi.operator.cluster.model.StatusDiff;
 import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlApi;
-import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlApiMockImpl;
+import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlApiImpl;
 import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlResponse;
+import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.CruiseControlUserTaskStatus;
 import io.strimzi.operator.cluster.operator.assembly.cruisecontrol.RebalanceOptions;
 import io.strimzi.operator.cluster.operator.resource.ResourceOperatorSupplier;
 import io.strimzi.operator.common.AbstractOperator;
@@ -61,12 +62,7 @@ public class KafkaClusterRebalanceAssemblyOperator
     private final PlatformFeaturesAvailability pfa;
     private final Function<Vertx, CruiseControlApi> cruiseControlClientProvider;
 
-    private static final String CRUISE_CONTROL_TASK_IN_PROGRESS = "in-progress";
-    private static final String CRUISE_CONTROL_TASK_PENDING = "pending";
-    private static final String CRUISE_CONTROL_TASK_ABORTING = "aborting";
-    private static final String CRUISE_CONTROL_TASK_ABORTED = "aborted";
-    private static final String CRUISE_CONTROL_TASK_DEAD = "dead";
-    private static final String CRUISE_CONTROL_TASK_COMPLETED = "completed";
+    private String ccHost = null;
 
     /**
      * @param vertx The Vertx instance
@@ -75,17 +71,30 @@ public class KafkaClusterRebalanceAssemblyOperator
      */
     public KafkaClusterRebalanceAssemblyOperator(Vertx vertx, PlatformFeaturesAvailability pfa,
                                                  ResourceOperatorSupplier supplier) {
-        this(vertx, pfa, supplier, v -> new CruiseControlApiMockImpl(vertx));
+        this(vertx, pfa, supplier, v -> new CruiseControlApiImpl(vertx), null);
+    }
+
+    /**
+     * @param vertx The Vertx instance
+     * @param pfa Platform features availability properties
+     * @param supplier Supplies the operators for different resources
+     * @param ccHost Optional host address for the Cruise Control REST API. If this is not supplied then Cruise Control
+     *             service address will be used. This parameter is intended for use in testing.
+     */
+    public KafkaClusterRebalanceAssemblyOperator(Vertx vertx, PlatformFeaturesAvailability pfa,
+                                                 ResourceOperatorSupplier supplier, String ccHost) {
+        this(vertx, pfa, supplier, v -> new CruiseControlApiImpl(vertx), ccHost);
     }
 
     public KafkaClusterRebalanceAssemblyOperator(Vertx vertx, PlatformFeaturesAvailability pfa,
                                                  ResourceOperatorSupplier supplier,
-                                                 Function<Vertx, CruiseControlApi> cruiseControlClientProvider) {
+                                                 Function<Vertx, CruiseControlApi> cruiseControlClientProvider, String ccHost) {
         super(vertx, KafkaClusterRebalance.RESOURCE_KIND, supplier.kafkaClusterRebalanceOperator);
         this.pfa = pfa;
         this.clusterRebalanceOperator = supplier.kafkaClusterRebalanceOperator;
         this.kafkaOperator = supplier.kafkaOperator;
         this.cruiseControlClientProvider = cruiseControlClientProvider;
+        this.ccHost = ccHost;
     }
 
     /**
@@ -123,7 +132,8 @@ public class KafkaClusterRebalanceAssemblyOperator
                                             kafkaClusterRebalance.getMetadata().getNamespace(), kafkaClusterRebalance.getMetadata().getName());
 
                                     withLock(reconciliation, LOCK_TIMEOUT_MS,
-                                        () -> reconcileClusterRebalance(reconciliation, CruiseControlResources.serviceName(clusterName),
+                                        () -> reconcileClusterRebalance(reconciliation,
+                                                ccHost == null ? CruiseControlResources.serviceName(clusterName) : ccHost,
                                                 apiClient, action == Action.DELETED ? null : kafkaClusterRebalance));
 
                                 } else {
@@ -269,28 +279,28 @@ public class KafkaClusterRebalanceAssemblyOperator
 
         return computeNextStatus(reconciliation, host, apiClient, clusterRebalance, currentState, rebalanceAnnotation, rebalanceOptionsBuilder)
                 .compose(desiredStatus -> {
-                    // due to a long rebalacing operation that takes the lock for the entire period, more events related to resource modification could be
-                    // queued with a stale resource (updated by the rebalacing holding the lock), so we need to get the current fresh resource
+                    // due to a long rebalancing operation that takes the lock for the entire period, more events related to resource modification could be
+                    // queued with a stale resource (updated by the rebalancing holding the lock), so we need to get the current fresh resource
                     return clusterRebalanceOperator.getAsync(reconciliation.namespace(), reconciliation.name())
-                            .compose(freshClusterRebalance -> {
-                                return updateStatus(freshClusterRebalance, desiredStatus, clusterRebalanceOperator, null)
-                                        .compose(c -> {
-                                            log.info("{}: State updated to [{}] with annotation {}={} ",
-                                                    reconciliation, c.getStatus().getConditions().get(0).getType(), ANNO_STRIMZI_IO_REBALANCE,
+                            .compose(freshClusterRebalance -> updateStatus(freshClusterRebalance, desiredStatus, clusterRebalanceOperator, null)
+                                    .compose(c -> {
+                                        log.info("{}: State updated to [{}] with annotation {}={} ",
+                                                reconciliation,
+                                                c.getStatus().getConditions().get(0).getType(),
+                                                ANNO_STRIMZI_IO_REBALANCE,
+                                                rebalanceAnnotation(c));
+                                        if (hasRebalanceAnnotation(c)) {
+                                            log.debug("{}: Removing annotation {}={}", reconciliation, ANNO_STRIMZI_IO_REBALANCE,
                                                     rebalanceAnnotation(c));
-                                            if (hasRebalanceAnnotation(c)) {
-                                                log.debug("{}: Removing annotation {}={}", reconciliation, ANNO_STRIMZI_IO_REBALANCE,
-                                                        rebalanceAnnotation(c));
-                                                KafkaClusterRebalance patchedClusterRebalance = new KafkaClusterRebalanceBuilder(c)
-                                                        .editMetadata().removeFromAnnotations(ANNO_STRIMZI_IO_REBALANCE).endMetadata().build();
+                                            KafkaClusterRebalance patchedClusterRebalance = new KafkaClusterRebalanceBuilder(c)
+                                                    .editMetadata().removeFromAnnotations(ANNO_STRIMZI_IO_REBALANCE).endMetadata().build();
 
-                                                return clusterRebalanceOperator.patchAsync(patchedClusterRebalance);
-                                            } else {
-                                                log.info("{}: No annotation {}", reconciliation, ANNO_STRIMZI_IO_REBALANCE);
-                                                return Future.succeededFuture();
-                                            }
-                                        }).mapEmpty();
-                            }, exception -> {
+                                            return clusterRebalanceOperator.patchAsync(patchedClusterRebalance);
+                                        } else {
+                                            log.info("{}: No annotation {}", reconciliation, ANNO_STRIMZI_IO_REBALANCE);
+                                            return Future.succeededFuture();
+                                        }
+                                    }).mapEmpty(), exception -> {
                                     log.error("{}: Status updated to [NotReady] due to error", exception);
                                     return updateStatus(clusterRebalance, new KafkaClusterRebalanceStatus(), clusterRebalanceOperator, exception)
                                             .mapEmpty();
@@ -373,6 +383,9 @@ public class KafkaClusterRebalanceAssemblyOperator
                         // and the previous execution set the status and completed the future
                         if (state(freshClusterRebalance) == State.PendingProposal) {
                             if (getRebalanceAnnotation(freshClusterRebalance) == RebalanceAnnotation.stop) {
+                                // Question: If this is a pending proposal there is nothing for the CC REST API to stop.
+                                // The Stop Execution endpoint only stops active cluster altering tasks
+                                // https://github.com/linkedin/cruise-control/wiki/REST-APIs#stop-the-current-proposal-execution-task
                                 log.debug("{}: Stopping current Cruise Control rebalance user task", reconciliation);
                                 vertx.cancelTimer(t);
                                 apiClient.stopExecution(host, CruiseControl.REST_API_PORT).setHandler(stopResult -> {
@@ -391,22 +404,23 @@ public class KafkaClusterRebalanceAssemblyOperator
                                     if (userTaskResult.succeeded()) {
                                         CruiseControlResponse response = userTaskResult.result();
                                         JsonObject taskStatusJson = response.getJson();
-                                        String taskStatus = taskStatusJson.getString("Status");
+                                        String taskStatusStr = taskStatusJson.getString("Status");
+                                        CruiseControlUserTaskStatus taskStatus = CruiseControlUserTaskStatus.lookup(taskStatusStr);
                                         switch (taskStatus) {
-                                            case CRUISE_CONTROL_TASK_COMPLETED:
+                                            case COMPLETED:
                                                 vertx.cancelTimer(t);
                                                 p.complete(new KafkaClusterRebalanceStatusBuilder()
                                                         .withSessionId(null)
                                                         .withOptimizationResult(taskStatusJson.getJsonObject("rebalance").getMap())
                                                         .addNewCondition().withType(State.ProposalReady.toString()).endCondition().build());
                                                 break;
-                                            case CRUISE_CONTROL_TASK_IN_PROGRESS:
-                                            case CRUISE_CONTROL_TASK_PENDING:
-                                            case CRUISE_CONTROL_TASK_ABORTING:
-                                                // just continue to do the periodic user task status request
+                                            case COMPLETED_WITH_ERROR:
+                                                // TODO: Add exception handling and update status?
                                                 break;
-                                            case CRUISE_CONTROL_TASK_ABORTED:
-                                            case CRUISE_CONTROL_TASK_DEAD:
+                                            case IN_EXECUTION: // Skip as still processing
+                                                break;
+                                            case ACTIVE: // Skip as still processing
+                                                break;
                                             default:
                                                 log.error("Unexpected state {}", taskStatus);
                                                 vertx.cancelTimer(t);
@@ -520,22 +534,23 @@ public class KafkaClusterRebalanceAssemblyOperator
                                     if (userTaskResult.succeeded()) {
                                         CruiseControlResponse response = userTaskResult.result();
                                         JsonObject taskStatusJson = response.getJson();
-                                        String taskStatus = taskStatusJson.getString("Status");
+                                        String taskStatusStr = taskStatusJson.getString("Status");
+                                        CruiseControlUserTaskStatus taskStatus = CruiseControlUserTaskStatus.lookup(taskStatusStr);
                                         switch (taskStatus) {
-                                            case CRUISE_CONTROL_TASK_COMPLETED:
+                                            case COMPLETED:
                                                 vertx.cancelTimer(t);
                                                 p.complete(new KafkaClusterRebalanceStatusBuilder()
                                                         .withSessionId(null)
                                                         .withOptimizationResult(taskStatusJson.getJsonObject("rebalance").getMap())
                                                         .addNewCondition().withType(State.Ready.toString()).endCondition().build());
                                                 break;
-                                            case CRUISE_CONTROL_TASK_IN_PROGRESS:
-                                            case CRUISE_CONTROL_TASK_PENDING:
-                                            case CRUISE_CONTROL_TASK_ABORTING:
-                                                // just continue to do the periodic user task status request
+                                            case COMPLETED_WITH_ERROR:
+                                                // TODO: Add exception handling and update status?
                                                 break;
-                                            case CRUISE_CONTROL_TASK_ABORTED:
-                                            case CRUISE_CONTROL_TASK_DEAD:
+                                            case IN_EXECUTION: // Skip as still processing
+                                                break;
+                                            case ACTIVE: // Skip as still processing
+                                                break;
                                             default:
                                                 log.error("Unexpected state {}", taskStatus);
                                                 vertx.cancelTimer(t);
@@ -606,11 +621,8 @@ public class KafkaClusterRebalanceAssemblyOperator
                                 State.valueOf(clusterRebalanceStatus.getConditions().get(0).getType());
                         // check annotation
                         RebalanceAnnotation rebalanceAnnotation = getRebalanceAnnotation(fetchedClusterRebalance);
-                        return reconcile(reconciliation, host, apiClient, fetchedClusterRebalance, currentState, rebalanceAnnotation)
-                                .mapEmpty();
-                    }, exception -> {
-                            return Future.failedFuture(exception).mapEmpty();
-                        });
+                        return reconcile(reconciliation, host, apiClient, fetchedClusterRebalance, currentState, rebalanceAnnotation).mapEmpty();
+                    }, exception -> Future.failedFuture(exception).mapEmpty());
         }
     }
 
@@ -625,11 +637,25 @@ public class KafkaClusterRebalanceAssemblyOperator
         State inprogress = dryrun ? State.PendingProposal : State.Rebalancing;
         return apiClient.rebalance(host, CruiseControl.REST_API_PORT, rebalanceOptionsBuilder.build())
                 .map(response -> {
+                    // Question: Should we inspect the JSON and check for the "summary" key?
                     if (response.getJson() != null) {
                         return new KafkaClusterRebalanceStatusBuilder()
-                                .withOptimizationResult(response.getJson().getJsonObject("rebalance").getMap())
+                                .withOptimizationResult(response.getJson().getJsonObject("summary").getMap())
                                 .addNewCondition().withNewType(ready.toString()).endCondition().build();
                     } else {
+                        // This branch is for the situation where Cruise Control is still preparing a Rebalance Proposal. This would only happen if one has
+                        // not been generated yet, for the default goals (i.e. we are close to the CC server start up) or the user has requested a rebalance
+                        // with custom goals that is taking some time to compute.
+
+                        // Question: Will this branch ever be reached? If there is no JSON in the response from the API then the client.rebalance() request
+                        // will fail when it calls buffer.toJsonObject(), so an exception will be thrown before this branch is hit.
+
+                        // I think that what will happen if the proposal is not ready, is that CC will simply respond with empty JSON (possibly without the
+                        // "summary" key) and we will have to check back later. I need to verify this behaviour.
+
+                        // Maybe the best option, if the summary key is not there, is to poll the user tasks endpoint until there is a "result" containing
+                        // the summary?
+                        // TODO: Test CC behaviour to see what is returned if a proposal is not ready
                         return new KafkaClusterRebalanceStatusBuilder()
                                 .withNewSessionId(response.getUserTaskId())
                                 .addNewCondition().withNewType(inprogress.toString()).endCondition().build();
@@ -670,7 +696,9 @@ public class KafkaClusterRebalanceAssemblyOperator
     protected Future<Void> createOrUpdate(Reconciliation reconciliation, KafkaClusterRebalance resource) {
         CruiseControlApi apiClient = cruiseControlClientProvider.apply(vertx);
         String clusterName = resource.getMetadata().getLabels().get(Labels.STRIMZI_CLUSTER_LABEL);
-        return this.reconcileClusterRebalance(reconciliation, CruiseControlResources.serviceName(clusterName), apiClient, resource);
+        return this.reconcileClusterRebalance(reconciliation,
+                ccHost == null ? CruiseControlResources.serviceName(clusterName) : ccHost,
+                apiClient, resource);
     }
 
     @Override

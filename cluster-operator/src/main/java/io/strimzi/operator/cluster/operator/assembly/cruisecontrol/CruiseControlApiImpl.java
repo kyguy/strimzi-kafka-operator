@@ -13,6 +13,8 @@ import io.vertx.core.json.JsonObject;
 
 public class CruiseControlApiImpl implements CruiseControlApi {
 
+    private static final String CC_REST_API_ERROR_KEY = "errorMessage";
+
     private final Vertx vertx;
 
     public CruiseControlApiImpl(Vertx vertx) {
@@ -20,24 +22,34 @@ public class CruiseControlApiImpl implements CruiseControlApi {
     }
 
     @Override
-    @SuppressWarnings("deprecation")
     public Future<CruiseControlResponse> getCruiseControlState(String host, int port, boolean verbose) {
+        return getCruiseControlState(host, port, verbose, null);
+    }
+
+    @SuppressWarnings("deprecation")
+    public Future<CruiseControlResponse> getCruiseControlState(String host, int port, boolean verbose, String userTaskId) {
 
         Promise<CruiseControlResponse> result = Promise.promise();
         HttpClientOptions options = new HttpClientOptions().setLogActivity(true);
 
         String path = new PathBuilder(CruiseControlEndpoints.STATE)
-                .addParameter(CruiseControlParameters.JSON, "true").build();
+                .addParameter(CruiseControlParameters.JSON, "true")
+                .addParameter(CruiseControlParameters.VERBOSE, String.valueOf(verbose))
+                .build();
 
-        vertx.createHttpClient(options)
+        HttpClientRequest request = vertx.createHttpClient(options)
                 .get(port, host, path, response -> {
                     response.exceptionHandler(result::fail);
                     if (response.statusCode() == 200 || response.statusCode() == 201) {
                         String userTaskID = response.getHeader(USER_ID_HEADER);
                         response.bodyHandler(buffer -> {
                             JsonObject json = buffer.toJsonObject();
-                            CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
-                            result.complete(ccResponse);
+                            if (json.containsKey(CC_REST_API_ERROR_KEY)) {
+                                result.fail(json.getString(CC_REST_API_ERROR_KEY));
+                            } else {
+                                CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
+                                result.complete(ccResponse);
+                            }
                         });
 
                     } else {
@@ -46,10 +58,31 @@ public class CruiseControlApiImpl implements CruiseControlApi {
                                 host + ":" + port + path));
                     }
                 })
-                .exceptionHandler(result::fail)
-                .end();
+                .exceptionHandler(result::fail);
+
+        if (userTaskId != null) {
+            request.putHeader(USER_ID_HEADER, userTaskId);
+        }
+
+        request.end();
 
         return result.future();
+    }
+
+    @Override
+    public Future<Boolean> isProposalReady(String host, int port) {
+        return isProposalReady(host, port, null);
+    }
+
+    public Future<Boolean> isProposalReady(String host, int port, String userTaskID) {
+        return getCruiseControlState(host, port, false, userTaskID).compose(stateResponse -> {
+            Boolean proposalReady = stateResponse
+                            .getJson()
+                            .getJsonObject("AnalyzerState")
+                            .getBoolean("isProposalReady");
+            return Future.succeededFuture(proposalReady);
+        });
+
     }
 
     @Override
@@ -81,8 +114,12 @@ public class CruiseControlApiImpl implements CruiseControlApi {
                         response.bodyHandler(buffer -> {
                             String returnedUTID = response.getHeader(USER_ID_HEADER);
                             JsonObject json = buffer.toJsonObject();
-                            CruiseControlResponse ccResponse = new CruiseControlResponse(returnedUTID, json);
-                            result.complete(ccResponse);
+                            if (json.containsKey(CC_REST_API_ERROR_KEY)) {
+                                result.fail(json.getString(CC_REST_API_ERROR_KEY));
+                            } else {
+                                CruiseControlResponse ccResponse = new CruiseControlResponse(returnedUTID, json);
+                                result.complete(ccResponse);
+                            }
                         });
                     } else {
                         result.fail(new CruiseControlRestException(
@@ -121,8 +158,12 @@ public class CruiseControlApiImpl implements CruiseControlApi {
                         String userTaskID = response.getHeader(USER_ID_HEADER);
                         response.bodyHandler(buffer -> {
                             JsonObject json = buffer.toJsonObject();
-                            CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
-                            result.complete(ccResponse);
+                            if (json.containsKey(CC_REST_API_ERROR_KEY)) {
+                                result.fail(json.getString(CC_REST_API_ERROR_KEY));
+                            } else {
+                                CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
+                                result.complete(ccResponse);
+                            }
                         });
                     } else {
                         result.fail(new CruiseControlRestException(
@@ -153,8 +194,12 @@ public class CruiseControlApiImpl implements CruiseControlApi {
                         String userTaskID = response.getHeader(USER_ID_HEADER);
                         response.bodyHandler(buffer -> {
                             JsonObject json = buffer.toJsonObject();
-                            CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
-                            result.complete(ccResponse);
+                            if (json.containsKey(CC_REST_API_ERROR_KEY)) {
+                                result.fail(json.getString(CC_REST_API_ERROR_KEY));
+                            } else {
+                                CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
+                                result.complete(ccResponse);
+                            }
                         });
 
                     } else {

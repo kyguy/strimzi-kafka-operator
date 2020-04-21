@@ -4,6 +4,9 @@
  */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  *  Holds the string literals for the possible options of the "Status" field in the JSON returned by the Cruise Control
  *  REST API /kafkacruisecontrol/user_tasks endpoint.
@@ -20,6 +23,14 @@ public enum CruiseControlUserTaskStatus {
     COMPLETED_WITH_ERROR("CompletedWithError");
 
     private String status;
+    // Reverse Lookup table
+    private static final Map<String, CruiseControlUserTaskStatus> LOOKUP = new HashMap<>();
+    //Populate the lookup table on loading time
+    static {
+        for (CruiseControlUserTaskStatus status : CruiseControlUserTaskStatus.values()) {
+            LOOKUP.put(status.toString(), status);
+        }
+    }
 
     CruiseControlUserTaskStatus(String status) {
         this.status = status;
@@ -30,4 +41,7 @@ public enum CruiseControlUserTaskStatus {
         return status;
     }
 
+    public static CruiseControlUserTaskStatus lookup(String url) {
+        return LOOKUP.get(url);
+    }
 }

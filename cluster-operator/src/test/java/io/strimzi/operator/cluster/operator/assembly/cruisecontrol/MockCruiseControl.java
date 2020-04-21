@@ -4,9 +4,11 @@
  */
 package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
+import com.sun.org.apache.regexp.internal.RE;
 import org.mockserver.configuration.ConfigurationProperties;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
+import org.mockserver.model.Header;
 import org.mockserver.model.Parameter;
 
 import java.io.ByteArrayInputStream;
@@ -28,10 +30,11 @@ import static org.mockserver.model.Header.header;
 
 public class MockCruiseControl {
 
-    private static final int RESPONSE_DELAY_SEC = 2;
+    private static final int RESPONSE_DELAY_SEC = 1;
 
     private static final String SEP =  "-";
     private static final String REBALANCE =  "rebalance";
+    private static final String STATE =  "rebalance";
     private static final String NO_GOALS =  "no-goals";
     private static final String VERBOSE =  "verbose";
     private static final String USER_TASK =  "user-task";
@@ -43,16 +46,19 @@ public class MockCruiseControl {
     public static final String USER_TASK_REBALANCE_NO_GOALS_VERBOSE_UTID = USER_TASK_REBALANCE_NO_GOALS + SEP + VERBOSE;
     public static final String USER_TASK_REBALANCE_NO_GOALS_RESPONSE_UTID = USER_TASK_REBALANCE_NO_GOALS + SEP + RESPONSE;
     public static final String USER_TASK_REBALANCE_NO_GOALS_VERBOSE_RESPONSE_UTID = USER_TASK_REBALANCE_NO_GOALS_VERBOSE_UTID + SEP + RESPONSE;
+    public static final String REBALANCE_ERROR = REBALANCE + SEP + "error";
+    public static final String REBALANCE_ERROR_RESPONSE_UTID = REBALANCE_ERROR + SEP + RESPONSE;
+    public static final String STATE_PROPOSAL_NOT_READY = STATE + SEP + "proposal" + SEP + "not" + SEP + "ready";
+    public static final String STATE_PROPOSAL_NOT_READY_RESPONSE = STATE_PROPOSAL_NOT_READY + SEP + RESPONSE;
 
     /**
      * Sets up and returns the Cruise Control MockSever
      * @param port The port number the MockServer instance should listen on
-     * @param pendingCalls The number of calls to the User Tasks endpoint that should return "InExecution" before "Completed" is returned as the status.
      * @return The configured ClientAndServer instance.
      * @throws IOException If there are issues connecting to the network port.
      * @throws URISyntaxException If any of the configured end points are invalid.
      */
-    public static ClientAndServer getCCServer(int port, int pendingCalls) throws IOException, URISyntaxException {
+    public static ClientAndServer getCCServer(int port) throws IOException, URISyntaxException {
         ConfigurationProperties.logLevel("WARN");
         String loggingConfiguration = "" +
                 "handlers=org.mockserver.logging.StandardOutConsoleHandler\n" +
@@ -64,10 +70,6 @@ public class MockCruiseControl {
         LogManager.getLogManager().readConfiguration(new ByteArrayInputStream(loggingConfiguration.getBytes(UTF_8)));
 
         ClientAndServer ccServer = new ClientAndServer(port);
-        setupTestResponse(ccServer);
-        setupCCStateResponse(ccServer);
-        setupCCRebalanceResponse(ccServer);
-        setupCCUserTasksResponse(ccServer, pendingCalls);
         return ccServer;
     }
 
@@ -85,12 +87,25 @@ public class MockCruiseControl {
 
     }
 
-    private static void setupTestResponse(ClientAndServer ccServer) {
-        ccServer.when(request().withMethod("GET").withPath("/test"))
-                .respond(response().withBody("Was this what you wanted?"));
-    }
+    public static void setupCCStateResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
 
-    private static void setupCCStateResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
+        // Non-verbose response
+        String jsonProposalNotReady = getJsonFromResource("CC-State-proposal-not-ready.json");
+
+        ccServer
+                .when(
+                        request()
+                                .withMethod("GET")
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.JSON.key, "true|false"))
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.VERBOSE.key, "true|false"))
+                                .withPath(CruiseControlEndpoints.STATE.path)
+                                .withHeaders(header(CruiseControlApi.USER_ID_HEADER, STATE_PROPOSAL_NOT_READY)))
+                .respond(
+                        response()
+                                .withBody(jsonProposalNotReady)
+                                .withHeaders(header("User-Task-ID", STATE_PROPOSAL_NOT_READY_RESPONSE))
+                                .withDelay(TimeUnit.SECONDS, RESPONSE_DELAY_SEC));
+
 
         // Non-verbose response
         String json = getJsonFromResource("CC-State.json");
@@ -100,6 +115,7 @@ public class MockCruiseControl {
                         request()
                                 .withMethod("GET")
                                 .withQueryStringParameter(Parameter.param(CruiseControlParameters.JSON.key, "true"))
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.VERBOSE.key, "false"))
                                 .withPath(CruiseControlEndpoints.STATE.path))
                 .respond(
                         response()
@@ -125,7 +141,26 @@ public class MockCruiseControl {
 
     }
 
-    private static void setupCCRebalanceResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
+    public static void setupCCRebalanceResponse(ClientAndServer ccServer) throws IOException, URISyntaxException {
+
+        // Rebalance response with no goal that returns an error
+        String jsonError = getJsonFromResource("CC-Rebalance-NotEnoughValidWindows-error.json");
+
+        ccServer
+                .when(
+                        request()
+                                .withMethod("POST")
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.JSON.key, "true"))
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.DRY_RUN.key, "true|false"))
+                                .withQueryStringParameter(Parameter.param(CruiseControlParameters.VERBOSE.key, "true|false"))
+                                .withPath(CruiseControlEndpoints.REBALANCE.path)
+                                .withHeaders(header(CruiseControlApi.USER_ID_HEADER, REBALANCE_ERROR)))
+
+                .respond(
+                        response()
+                                .withBody(jsonError)
+                                .withHeaders(header(CruiseControlApi.USER_ID_HEADER, REBALANCE_ERROR_RESPONSE_UTID))
+                                .withDelay(TimeUnit.SECONDS, RESPONSE_DELAY_SEC));
 
         // Rebalance response with no goals set - non-verbose
         String json = getJsonFromResource("CC-Rebalance-no-goals.json");
@@ -161,6 +196,8 @@ public class MockCruiseControl {
                                 .withHeaders(header("User-Task-ID", REBALANCE_NO_GOALS_VERBOSE_RESPONSE_UTID))
                                 .withDelay(TimeUnit.SECONDS, RESPONSE_DELAY_SEC));
 
+
+
     }
 
     /**
@@ -171,7 +208,7 @@ public class MockCruiseControl {
      * @throws IOException If there are issues connecting to the network port.
      * @throws URISyntaxException If any of the configured end points are invalid.
      */
-    private static void setupCCUserTasksResponse(ClientAndServer ccServer, int pendingCalls) throws IOException, URISyntaxException {
+    public static void setupCCUserTasksResponse(ClientAndServer ccServer, int pendingCalls) throws IOException, URISyntaxException {
 
         // User tasks response for the rebalance request with no goals set (non-verbose)
         String jsonInExecution = getJsonFromResource("CC-User-task-rebalance-no-goals-inExecution.json");

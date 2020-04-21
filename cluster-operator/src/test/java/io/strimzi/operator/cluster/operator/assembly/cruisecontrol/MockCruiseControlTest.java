@@ -6,8 +6,12 @@ package io.strimzi.operator.cluster.operator.assembly.cruisecontrol;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockserver.integration.ClientAndServer;
@@ -26,9 +30,24 @@ public class MockCruiseControlTest {
 
     private static ClientAndServer ccServer;
 
+    @BeforeAll
+    public static void startUp() throws IOException, URISyntaxException {
+        ccServer = MockCruiseControl.getCCServer(PORT);
+    }
+
+    @BeforeEach
+    public void resetServer() {
+        ccServer.reset();
+    }
+
+    @AfterAll
+    public static void stop() {
+        ccServer.stop();
+    }
+
     private void runTest(Vertx vertx, VertxTestContext context, String userTaskID, int pendingCalls) throws IOException, URISyntaxException {
 
-        ccServer = MockCruiseControl.getCCServer(PORT, pendingCalls);
+        MockCruiseControl.setupCCUserTasksResponse(ccServer, pendingCalls);
 
         CruiseControlApi client = new CruiseControlApiImpl(vertx);
 
@@ -53,7 +72,6 @@ public class MockCruiseControlTest {
             );
             return Future.succeededFuture(response);
         }).setHandler(context.succeeding(result -> {
-            ccServer.stop();
             context.completeNow();
         }));
     }
@@ -77,4 +95,75 @@ public class MockCruiseControlTest {
     public void testCCUserTaskDelayVerbose(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
         runTest(vertx, context, MockCruiseControl.REBALANCE_NO_GOALS_VERBOSE_RESPONSE_UTID, 3);
     }
+
+    @Test
+    public void testMockCCServerPendingCallsOverride(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
+
+        CruiseControlApi client = new CruiseControlApiImpl(vertx);
+        String userTaskID = MockCruiseControl.REBALANCE_NO_GOALS_RESPONSE_UTID;
+
+        int pendingCalls1 = 2;
+        Checkpoint firstPending = context.checkpoint(pendingCalls1);
+        int pendingCalls2 = 4;
+        Checkpoint secondPending = context.checkpoint(pendingCalls2);
+
+        MockCruiseControl.setupCCUserTasksResponse(ccServer, pendingCalls1);
+
+        Future<CruiseControlResponse> statusFuture = client.getUserTaskStatus(HOST, PORT, userTaskID);
+
+        for (int i = 1; i <= pendingCalls1; i++) {
+            statusFuture = statusFuture.compose(response -> {
+                context.verify(() -> assertThat(
+                        response.getJson().getJsonArray("userTasks").getJsonObject(0).getString("Status"),
+                        is(CruiseControlUserTaskStatus.IN_EXECUTION.toString()))
+                );
+                firstPending.flag();
+                return client.getUserTaskStatus(HOST, PORT, userTaskID);
+            });
+        }
+
+        statusFuture = statusFuture.compose(response -> {
+            context.verify(() -> assertThat(
+                    response.getJson().getJsonArray("userTasks").getJsonObject(0).getString("Status"),
+                    is(CruiseControlUserTaskStatus.COMPLETED.toString()))
+            );
+            return Future.succeededFuture(response);
+        });
+
+        statusFuture = statusFuture.compose(response -> {
+            try {
+                ccServer.reset();
+                MockCruiseControl.setupCCUserTasksResponse(ccServer, pendingCalls2);
+            } catch (IOException e) {
+                return Future.failedFuture(e);
+            } catch (URISyntaxException e) {
+                return Future.failedFuture(e);
+            }
+            return Future.succeededFuture();
+        });
+
+        statusFuture = statusFuture.compose(ignore -> client.getUserTaskStatus(HOST, PORT, userTaskID));
+
+        for (int i = 1; i <= pendingCalls2; i++) {
+            statusFuture = statusFuture.compose(response -> {
+                context.verify(() -> assertThat(
+                        response.getJson().getJsonArray("userTasks").getJsonObject(0).getString("Status"),
+                        is(CruiseControlUserTaskStatus.IN_EXECUTION.toString()))
+                );
+                secondPending.flag();
+                return client.getUserTaskStatus(HOST, PORT, userTaskID);
+            });
+        }
+
+        statusFuture.compose(response -> {
+            context.verify(() -> assertThat(
+                    response.getJson().getJsonArray("userTasks").getJsonObject(0).getString("Status"),
+                    is(CruiseControlUserTaskStatus.COMPLETED.toString()))
+            );
+            return Future.succeededFuture(response);
+        }).setHandler(context.succeeding(result -> {
+            context.completeNow();
+        }));
+    }
+
 }
