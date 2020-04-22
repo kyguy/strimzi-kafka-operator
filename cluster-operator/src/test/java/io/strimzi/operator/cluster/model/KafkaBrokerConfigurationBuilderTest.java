@@ -6,6 +6,8 @@ package io.strimzi.operator.cluster.model;
 
 import io.strimzi.api.kafka.model.CertSecretSource;
 import io.strimzi.api.kafka.model.CertSecretSourceBuilder;
+import io.strimzi.api.kafka.model.CruiseControlSpec;
+import io.strimzi.api.kafka.model.CruiseControlSpecBuilder;
 import io.strimzi.api.kafka.model.KafkaAuthorization;
 import io.strimzi.api.kafka.model.KafkaAuthorizationKeycloakBuilder;
 import io.strimzi.api.kafka.model.KafkaAuthorizationSimpleBuilder;
@@ -48,6 +50,34 @@ public class KafkaBrokerConfigurationBuilderTest {
                 .build();
 
         assertThat(configuration, isEquivalent("broker.id=${STRIMZI_BROKER_ID}"));
+    }
+
+    @Test
+    public void testNoCruiseControl()  {
+        String configuration = new KafkaBrokerConfigurationBuilder()
+                .withCruiseControl(null)
+                .build();
+
+        assertThat(configuration, isEquivalent(""));
+    }
+
+    @Test
+    public void testCruiseControl()  {
+        CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder().build();
+
+        String configuration = new KafkaBrokerConfigurationBuilder()
+                .withCruiseControl(cruiseControlSpec)
+                .build();
+
+        assertThat(configuration, isEquivalent("cruise.control.metrics.reporter.ssl.endpoint.identification.algorithm=\n" +
+                "cruise.control.metrics.reporter.bootstrap.servers=127.0.0.1:9091\n" +
+                "cruise.control.metrics.reporter.security.protocol=SSL\n" +
+                "cruise.control.metrics.reporter.ssl.keystore.type=PKCS12\n" +
+                "cruise.control.metrics.reporter.ssl.keystore.location=/tmp/kafka/cluster.keystore.p12\n" +
+                "cruise.control.metrics.reporter.ssl.keystore.password=${CERTS_STORE_PASSWORD}\n" +
+                "cruise.control.metrics.reporter.ssl.truststore.type=PKCS12\n" +
+                "cruise.control.metrics.reporter.ssl.truststore.location=/tmp/kafka/cluster.truststore.p12\n" +
+                "cruise.control.metrics.reporter.ssl.truststore.password=${CERTS_STORE_PASSWORD}"));
     }
 
     @Test
@@ -108,7 +138,7 @@ public class KafkaBrokerConfigurationBuilderTest {
                 .build();
 
         assertThat(configuration, isEquivalent("authorizer.class.name=kafka.security.auth.SimpleAclAuthorizer\n" +
-                "super.users=User:CN=my-cluster-kafka,O=io.strimzi;User:CN=my-cluster-entity-operator,O=io.strimzi;User:CN=my-cluster-kafka-exporter,O=io.strimzi;User:CN=cluster-operator,O=io.strimzi;User:jakub;User:CN=kuba"));
+                "super.users=User:CN=my-cluster-kafka,O=io.strimzi;User:CN=my-cluster-entity-operator,O=io.strimzi;User:CN=my-cluster-kafka-exporter,O=io.strimzi;User:CN=my-cluster-cruise-control,O=io.strimzi;User:CN=cluster-operator,O=io.strimzi;User:jakub;User:CN=kuba"));
     }
 
     @Test
@@ -121,7 +151,7 @@ public class KafkaBrokerConfigurationBuilderTest {
                 .build();
 
         assertThat(configuration, isEquivalent("authorizer.class.name=kafka.security.auth.SimpleAclAuthorizer\n" +
-                "super.users=User:CN=my-cluster-kafka,O=io.strimzi;User:CN=my-cluster-entity-operator,O=io.strimzi;User:CN=my-cluster-kafka-exporter,O=io.strimzi;User:CN=cluster-operator,O=io.strimzi"));
+                "super.users=User:CN=my-cluster-kafka,O=io.strimzi;User:CN=my-cluster-entity-operator,O=io.strimzi;User:CN=my-cluster-kafka-exporter,O=io.strimzi;User:CN=my-cluster-cruise-control,O=io.strimzi;User:CN=cluster-operator,O=io.strimzi"));
     }
 
     @Test
@@ -155,7 +185,7 @@ public class KafkaBrokerConfigurationBuilderTest {
                 "strimzi.authorization.ssl.truststore.type=PKCS12\n" +
                 "strimzi.authorization.ssl.secure.random.implementation=SHA1PRNG\n" +
                 "strimzi.authorization.ssl.endpoint.identification.algorithm=\n" +
-                "super.users=User:CN=my-cluster-kafka,O=io.strimzi;User:CN=my-cluster-entity-operator,O=io.strimzi;User:CN=my-cluster-kafka-exporter,O=io.strimzi;User:CN=cluster-operator,O=io.strimzi;User:giada;User:CN=paccu"));
+                "super.users=User:CN=my-cluster-kafka,O=io.strimzi;User:CN=my-cluster-entity-operator,O=io.strimzi;User:CN=my-cluster-kafka-exporter,O=io.strimzi;User:CN=my-cluster-cruise-control,O=io.strimzi;User:CN=cluster-operator,O=io.strimzi;User:giada;User:CN=paccu"));
     }
 
     @Test

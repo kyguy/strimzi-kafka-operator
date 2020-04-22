@@ -222,6 +222,7 @@ public class KafkaCluster extends AbstractModel {
     private KafkaListeners listeners;
     private KafkaAuthorization authorization;
     private KafkaVersion kafkaVersion;
+    private CruiseControlSpec cruiseControlSpec;
     private boolean isJmxEnabled;
     private boolean isJmxAuthenticated;
     private CertAndKeySecretSource secretSourceExternal = null;
@@ -464,8 +465,8 @@ public class KafkaCluster extends AbstractModel {
             addAll(metricReporterList, configuration.getConfigOption(KAFKA_METRIC_REPORTERS_CONFIG_FIELD).split(","));
         }
 
-        CruiseControlSpec cruiseControlSpec  = kafkaSpec.getCruiseControl();
-        if (cruiseControlSpec != null) {
+        result.cruiseControlSpec  = kafkaSpec.getCruiseControl();
+        if (result.cruiseControlSpec != null) {
             metricReporterList.add(CRUISE_CONTROL_METRIC_REPORTER);
             configuration.setConfigOption(CRUISE_CONTROL_METRICS_TOPIC, CRUISE_CONTROL_METRICS_TOPIC_VALUE);
         } else {
@@ -2479,6 +2480,7 @@ public class KafkaCluster extends AbstractModel {
                 .withLogDirs(VolumeUtils.getDataVolumeMountPaths(storage, mountPath))
                 .withListeners(cluster, namespace, listeners)
                 .withAuthorization(cluster, authorization)
+                .withCruiseControl(cruiseControlSpec)
                 .withUserConfiguration(configuration)
                 .build().trim();
     }

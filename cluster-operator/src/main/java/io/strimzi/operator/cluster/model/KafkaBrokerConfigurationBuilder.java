@@ -6,6 +6,7 @@ package io.strimzi.operator.cluster.model;
 
 import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.strimzi.api.kafka.model.CertAndKeySecretSource;
+import io.strimzi.api.kafka.model.CruiseControlSpec;
 import io.strimzi.api.kafka.model.KafkaAuthorization;
 import io.strimzi.api.kafka.model.KafkaAuthorizationKeycloak;
 import io.strimzi.api.kafka.model.KafkaAuthorizationSimple;
@@ -56,11 +57,36 @@ public class KafkaBrokerConfigurationBuilder {
     public KafkaBrokerConfigurationBuilder withBrokerId()   {
         printSectionHeader("Broker ID");
         writer.println("broker.id=${STRIMZI_BROKER_ID}");
+
         writer.println();
 
         return this;
     }
 
+    /**
+     * Configures the Cruise Control metric reporter. It is set only if user enabled the Cruise Control.
+     *
+     * @param cruiseContol The Cruise Control configuration from the Kafka CR
+     *
+     * @return Returns the builder instance
+     */
+    public KafkaBrokerConfigurationBuilder withCruiseControl(CruiseControlSpec cruiseContol)   {
+        if (cruiseContol != null) {
+            printSectionHeader("Cruise Control configuration");
+            writer.println("cruise.control.metrics.reporter.ssl.endpoint.identification.algorithm=");
+            writer.println("cruise.control.metrics.reporter.bootstrap.servers=127.0.0.1:9091");
+            writer.println("cruise.control.metrics.reporter.security.protocol=SSL");
+            writer.println("cruise.control.metrics.reporter.ssl.keystore.type=PKCS12");
+            writer.println("cruise.control.metrics.reporter.ssl.keystore.location=/tmp/kafka/cluster.keystore.p12");
+            writer.println("cruise.control.metrics.reporter.ssl.keystore.password=${CERTS_STORE_PASSWORD}");
+            writer.println("cruise.control.metrics.reporter.ssl.truststore.type=PKCS12");
+            writer.println("cruise.control.metrics.reporter.ssl.truststore.location=/tmp/kafka/cluster.truststore.p12");
+            writer.println("cruise.control.metrics.reporter.ssl.truststore.password=${CERTS_STORE_PASSWORD}");
+            writer.println();
+        }
+
+        return this;
+    }
     /**
      * Adds the template for the {@code rack.id}. The rack ID will be set in the container based on the value of the
      * {@code STRIMZI_RACK_ID} env var. It is set only if user enabled the rack awareness-
@@ -377,6 +403,7 @@ public class KafkaBrokerConfigurationBuilder {
             superUsers.add(String.format("User:CN=%s-%s,O=io.strimzi", clusterName, "entity-operator"));
             superUsers.add(String.format("User:CN=%s-%s,O=io.strimzi", clusterName, "kafka-exporter"));
             superUsers.add(String.format("User:CN=%s-%s,O=io.strimzi", clusterName, "cruise-control"));
+
             superUsers.add(String.format("User:CN=%s,O=io.strimzi", "cluster-operator"));
 
             printSectionHeader("Authorization");
