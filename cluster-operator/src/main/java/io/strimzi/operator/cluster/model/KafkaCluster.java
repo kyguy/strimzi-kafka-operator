@@ -115,8 +115,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static io.strimzi.operator.cluster.model.CruiseControl.CRUISE_CONTROL_METRICS_TOPIC;
-import static io.strimzi.operator.cluster.model.CruiseControl.CRUISE_CONTROL_METRICS_TOPIC_VALUE;
 import static java.util.Collections.addAll;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
@@ -468,10 +466,8 @@ public class KafkaCluster extends AbstractModel {
         result.cruiseControlSpec  = kafkaSpec.getCruiseControl();
         if (result.cruiseControlSpec != null) {
             metricReporterList.add(CRUISE_CONTROL_METRIC_REPORTER);
-            configuration.setConfigOption(CRUISE_CONTROL_METRICS_TOPIC, CRUISE_CONTROL_METRICS_TOPIC_VALUE);
         } else {
             metricReporterList.remove(CRUISE_CONTROL_METRIC_REPORTER);
-            configuration.removeConfigOption(CRUISE_CONTROL_METRICS_TOPIC);
         }
         if (!metricReporterList.isEmpty()) {
             configuration.setConfigOption(KAFKA_METRIC_REPORTERS_CONFIG_FIELD, String.join(",", metricReporterList));
@@ -2480,7 +2476,7 @@ public class KafkaCluster extends AbstractModel {
                 .withLogDirs(VolumeUtils.getDataVolumeMountPaths(storage, mountPath))
                 .withListeners(cluster, namespace, listeners)
                 .withAuthorization(cluster, authorization)
-                .withCruiseControl(cruiseControlSpec)
+                .withCruiseControl(cluster, cruiseControlSpec)
                 .withUserConfiguration(configuration)
                 .build().trim();
     }
