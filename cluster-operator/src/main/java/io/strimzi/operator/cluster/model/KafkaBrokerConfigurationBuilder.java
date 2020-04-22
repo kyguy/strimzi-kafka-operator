@@ -66,15 +66,17 @@ public class KafkaBrokerConfigurationBuilder {
     /**
      * Configures the Cruise Control metric reporter. It is set only if user enabled the Cruise Control.
      *
+     * @param clusterName Name of the cluster
      * @param cruiseContol The Cruise Control configuration from the Kafka CR
      *
      * @return Returns the builder instance
      */
-    public KafkaBrokerConfigurationBuilder withCruiseControl(CruiseControlSpec cruiseContol)   {
+    public KafkaBrokerConfigurationBuilder withCruiseControl(String clusterName, CruiseControlSpec cruiseContol)   {
         if (cruiseContol != null) {
             printSectionHeader("Cruise Control configuration");
-            writer.println("cruise.control.metrics.reporter.ssl.endpoint.identification.algorithm=");
-            writer.println("cruise.control.metrics.reporter.bootstrap.servers=127.0.0.1:9091");
+            writer.println("cruise.control.metrics.topic=strimzi.cruisecontrol.metrics");
+            writer.println("cruise.control.metrics.reporter.ssl.endpoint.identification.algorithm=HTTPS");
+            writer.println("cruise.control.metrics.reporter.bootstrap.servers=" + KafkaResources.bootstrapServiceName(clusterName) + ":9091");
             writer.println("cruise.control.metrics.reporter.security.protocol=SSL");
             writer.println("cruise.control.metrics.reporter.ssl.keystore.type=PKCS12");
             writer.println("cruise.control.metrics.reporter.ssl.keystore.location=/tmp/kafka/cluster.keystore.p12");

@@ -54,8 +54,6 @@ public class CruiseControl extends AbstractModel {
     protected static final String APPLICATION_NAME = "cruise-control";
 
     public static final String CRUISE_CONTROL_METRIC_REPORTER = "com.linkedin.kafka.cruisecontrol.metricsreporter.CruiseControlMetricsReporter";
-    public static final String CRUISE_CONTROL_METRICS_TOPIC = "cruise.control.metrics.topic";
-    public static final String CRUISE_CONTROL_METRICS_TOPIC_VALUE = "strimzi.cruisecontrol.metrics";
 
     protected static final String CRUISE_CONTROL_CONTAINER_NAME = "cruise-control";
     protected static final String TLS_SIDECAR_NAME = "tls-sidecar";

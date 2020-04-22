@@ -55,7 +55,7 @@ public class KafkaBrokerConfigurationBuilderTest {
     @Test
     public void testNoCruiseControl()  {
         String configuration = new KafkaBrokerConfigurationBuilder()
-                .withCruiseControl(null)
+                .withCruiseControl("my-cluster", null)
                 .build();
 
         assertThat(configuration, isEquivalent(""));
@@ -66,11 +66,13 @@ public class KafkaBrokerConfigurationBuilderTest {
         CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder().build();
 
         String configuration = new KafkaBrokerConfigurationBuilder()
-                .withCruiseControl(cruiseControlSpec)
+                .withCruiseControl("my-cluster", cruiseControlSpec)
                 .build();
 
-        assertThat(configuration, isEquivalent("cruise.control.metrics.reporter.ssl.endpoint.identification.algorithm=\n" +
-                "cruise.control.metrics.reporter.bootstrap.servers=127.0.0.1:9091\n" +
+        assertThat(configuration, isEquivalent(
+                "cruise.control.metrics.topic=strimzi.cruisecontrol.metrics\n" +
+                "cruise.control.metrics.reporter.ssl.endpoint.identification.algorithm=HTTPS\n" +
+                "cruise.control.metrics.reporter.bootstrap.servers=my-cluster-kafka-bootstrap:9091\n" +
                 "cruise.control.metrics.reporter.security.protocol=SSL\n" +
                 "cruise.control.metrics.reporter.ssl.keystore.type=PKCS12\n" +
                 "cruise.control.metrics.reporter.ssl.keystore.location=/tmp/kafka/cluster.keystore.p12\n" +
