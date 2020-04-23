@@ -14,6 +14,7 @@ import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.LifecycleBuilder;
 import io.fabric8.kubernetes.api.model.LocalObjectReference;
 import io.fabric8.kubernetes.api.model.Secret;
+import io.fabric8.kubernetes.api.model.SecurityContext;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.api.model.Toleration;
@@ -106,6 +107,9 @@ public class CruiseControl extends AbstractModel {
     // Templates
     protected List<ContainerEnvVar> templateCruiseControlContainerEnvVars;
     protected List<ContainerEnvVar> templateTlsSidecarContainerEnvVars;
+
+    protected SecurityContext templateCruiseControlContainerSecurityContext;
+    protected SecurityContext templateTlsSidecarContainerSecurityContext;
 
     private boolean isDeployed;
 
@@ -250,6 +254,14 @@ public class CruiseControl extends AbstractModel {
                 cruiseControl.templateTlsSidecarContainerEnvVars = template.getTlsSidecarContainer().getEnv();
             }
 
+            if (template.getCruiseControlContainer() != null && template.getCruiseControlContainer().getSecurityContext() != null) {
+                cruiseControl.templateCruiseControlContainerSecurityContext = template.getCruiseControlContainer().getSecurityContext();
+            }
+
+            if (template.getTlsSidecarContainer() != null && template.getTlsSidecarContainer().getSecurityContext() != null) {
+                cruiseControl.templateTlsSidecarContainerSecurityContext = template.getTlsSidecarContainer().getSecurityContext();
+            }
+
             ModelUtils.parsePodDisruptionBudgetTemplate(cruiseControl, template.getPodDisruptionBudget());
         }
         return cruiseControl;
@@ -352,6 +364,7 @@ public class CruiseControl extends AbstractModel {
                 .withResources(getResources())
                 .withVolumeMounts(getVolumeMounts())
                 .withImagePullPolicy(determineImagePullPolicy(imagePullPolicy, getImage()))
+                .withSecurityContext(templateCruiseControlContainerSecurityContext)
                 .build();
 
         String tlsSidecarImage = this.tlsSidecarImage;
@@ -374,6 +387,7 @@ public class CruiseControl extends AbstractModel {
                                 String.valueOf(templateTerminationGracePeriodSeconds))
                         .endExec().endPreStop().build())
                 .withImagePullPolicy(determineImagePullPolicy(imagePullPolicy, tlsSidecarImage))
+                .withSecurityContext(templateTlsSidecarContainerSecurityContext)
                 .build();
 
         containers.add(container);

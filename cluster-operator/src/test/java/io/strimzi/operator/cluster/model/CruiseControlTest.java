@@ -8,8 +8,11 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.EnvVarBuilder;
 import io.fabric8.kubernetes.api.model.IntOrString;
+import io.fabric8.kubernetes.api.model.PodSecurityContextBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
+import io.fabric8.kubernetes.api.model.SecurityContext;
+import io.fabric8.kubernetes.api.model.SecurityContextBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeMount;
@@ -50,10 +53,14 @@ import static io.strimzi.operator.cluster.model.cruisecontrol.Capacity.DEFAULT_B
 import static io.strimzi.operator.cluster.model.cruisecontrol.Capacity.DEFAULT_BROKER_INBOUND_NETWORK_KIB_PER_SECOND_CAPACITY;
 import static io.strimzi.operator.cluster.model.cruisecontrol.Capacity.DEFAULT_BROKER_OUTBOUND_NETWORK_KIB_PER_SECOND_CAPACITY;
 import static java.util.Collections.singletonMap;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.hasItems;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -567,6 +574,129 @@ public class CruiseControlTest {
         assertThat(ccContainer.getLivenessProbe().getTimeoutSeconds(), is(new Integer(healthTimeout)));
         assertThat(ccContainer.getReadinessProbe().getInitialDelaySeconds(), is(new Integer(healthDelay)));
         assertThat(ccContainer.getReadinessProbe().getTimeoutSeconds(), is(new Integer(healthTimeout)));
+    }
+
+    @Test
+    public void testSecurityContext() {
+        CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder()
+                .withImage(ccImage)
+                .withConfig((Map) configuration.asOrderedProperties().asMap())
+                .withNewTemplate()
+                    .withNewPod()
+                        .withSecurityContext(new PodSecurityContextBuilder().withFsGroup(123L).withRunAsGroup(456L).withRunAsUser(789L).build())
+                    .endPod()
+                .endTemplate()
+                .build();
+
+        Kafka resource =
+                new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
+                        .editSpec()
+                            .editKafka()
+                                .withVersion(version)
+                            .endKafka()
+                            .withCruiseControl(cruiseControlSpec)
+                        .endSpec()
+                        .build();
+
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
+
+        Deployment dep = cc.generateDeployment(true, null, null, null);
+        assertThat(dep.getSpec().getTemplate().getSpec().getSecurityContext(), is(notNullValue()));
+        assertThat(dep.getSpec().getTemplate().getSpec().getSecurityContext().getFsGroup(), is(Long.valueOf(123)));
+        assertThat(dep.getSpec().getTemplate().getSpec().getSecurityContext().getRunAsGroup(), is(Long.valueOf(456)));
+        assertThat(dep.getSpec().getTemplate().getSpec().getSecurityContext().getRunAsUser(), is(Long.valueOf(789)));
+    }
+
+    @Test
+    public void testDefaultSecurityContext() {
+        Deployment dep = cc.generateDeployment(true, null, null, null);
+        assertThat(dep.getSpec().getTemplate().getSpec().getSecurityContext(), is(nullValue()));
+    }
+
+    @Test
+    public void testCruiseControlContainerSecurityContext() {
+        SecurityContext securityContext = new SecurityContextBuilder()
+                .withPrivileged(false)
+                .withNewReadOnlyRootFilesystem(false)
+                .withAllowPrivilegeEscalation(false)
+                .withRunAsNonRoot(true)
+                .withNewCapabilities()
+                    .addNewDrop("ALL")
+                .endCapabilities()
+                .build();
+
+        CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder()
+                .withImage(ccImage)
+                .withConfig((Map) configuration.asOrderedProperties().asMap())
+                .withNewTemplate()
+                    .withNewCruiseControlContainer()
+                        .withSecurityContext(securityContext)
+                    .endCruiseControlContainer()
+                .endTemplate()
+                .build();
+
+        Kafka resource =
+                new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
+                        .editSpec()
+                            .editKafka()
+                                .withVersion(version)
+                            .endKafka()
+                            .withCruiseControl(cruiseControlSpec)
+                        .endSpec()
+                        .build();
+
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
+
+        Deployment dep = cc.generateDeployment(true, null, null, null);
+
+        assertThat(dep.getSpec().getTemplate().getSpec().getContainers(),
+                hasItem(allOf(
+                        hasProperty("name", equalTo(CruiseControl.CRUISE_CONTROL_CONTAINER_NAME)),
+                        hasProperty("securityContext", equalTo(securityContext))
+                )));
+    }
+
+    @Test
+    public void testTlsSidecarContainerSecurityContext() {
+        SecurityContext securityContext = new SecurityContextBuilder()
+                .withPrivileged(false)
+                .withNewReadOnlyRootFilesystem(false)
+                .withAllowPrivilegeEscalation(false)
+                .withRunAsNonRoot(true)
+                .withNewCapabilities()
+                    .addNewDrop("ALL")
+                .endCapabilities()
+                .build();
+
+        CruiseControlSpec cruiseControlSpec = new CruiseControlSpecBuilder()
+                .withImage(ccImage)
+                .withConfig((Map) configuration.asOrderedProperties().asMap())
+                .withNewTemplate()
+                    .withNewTlsSidecarContainer()
+                        .withSecurityContext(securityContext)
+                    .endTlsSidecarContainer()
+                .endTemplate()
+                .build();
+
+        Kafka resource =
+                new KafkaBuilder(ResourceUtils.createKafkaCluster(namespace, cluster, replicas, image, healthDelay, healthTimeout))
+                        .editSpec()
+                            .editKafka()
+                                .withVersion(version)
+                            .endKafka()
+                            .withCruiseControl(cruiseControlSpec)
+                        .endSpec()
+                        .build();
+
+        CruiseControl cc = CruiseControl.fromCrd(resource, VERSIONS);
+
+        Deployment dep = cc.generateDeployment(true, null, null, null);
+
+        assertThat(dep.getSpec().getTemplate().getSpec().getContainers(),
+                hasItem(allOf(
+                        hasProperty("name", equalTo(CruiseControl.TLS_SIDECAR_NAME)),
+                        hasProperty("securityContext", equalTo(securityContext))
+                )));
     }
 
     @AfterAll
