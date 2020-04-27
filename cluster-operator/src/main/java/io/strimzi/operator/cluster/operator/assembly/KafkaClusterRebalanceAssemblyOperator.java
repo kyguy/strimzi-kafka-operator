@@ -251,7 +251,7 @@ public class KafkaClusterRebalanceAssemblyOperator
         none,
         /**
          * Used to approve a rebalance proposal and trigger the actual rebalancing.
-         * This value should only be use when in the {@code ProposalReady} state.
+         * This value should only be used when in the {@code ProposalReady} state.
          */
         approve,
         /**
@@ -261,9 +261,14 @@ public class KafkaClusterRebalanceAssemblyOperator
         stop,
         /**
          * Used to restart a stopped request for getting a rebalance proposal.
-         * This value should only be use when in the {@code Stopped} state.
+         * This value should only be used when in the {@code Stopped} state.
          */
         restart,
+        /**
+         * Used to refresh a ready rebalance proposal.
+         * This value should only be used when in the {@code ProposalReady} state.
+         */
+        refresh,
         /**
          * Any other unsupported/unknown annotation value.
          */
@@ -454,6 +459,7 @@ public class KafkaClusterRebalanceAssemblyOperator
      * This method handles the transition from {@code ProposalReady} state.
      * It is related to the value that the user apply to the strimzi.io/rebalance annotation.
      * If the strimzi.io/rebalance=approve is set, it calls the Cruise Control API for executing the proposed rebalance.
+     * If the strimzi.io/rebalance=refresh is set, it calls the Cruise Control API for for requesting/refreshing the ready rebalance proposal.
      * If the rebalance is immediately complete, the next state is {@code Ready}.
      * If the rebalance is not finished yet and Cruise Control is still taking care of processing it (the usual case), the next state is {@code Rebalancing}.
      * If the user sets any other values for the strimzi.io/rebalance, it is just ignored.
@@ -477,6 +483,8 @@ public class KafkaClusterRebalanceAssemblyOperator
                 return Future.succeededFuture(clusterRebalance.getStatus());
             case approve:
                 return requestRebalance(reconciliation, host, apiClient, false, rebalanceOptionsBuilder);
+            case refresh:
+                return requestRebalance(reconciliation, host, apiClient, true, rebalanceOptionsBuilder);
             default:
                 log.warn("{}: Ignore annotation {}={}", reconciliation, ANNO_STRIMZI_IO_REBALANCE, rebalanceAnnotation);
                 return Future.succeededFuture(clusterRebalance.getStatus());
