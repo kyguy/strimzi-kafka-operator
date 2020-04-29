@@ -324,42 +324,6 @@ public class KafkaClusterRebalanceAssemblyOperator
                     return updateStatus(clusterRebalance, new KafkaClusterRebalanceStatus(), clusterRebalanceOperator, exception)
                             .mapEmpty();
                 });
-
-        /*
-        return computeNextStatus(reconciliation, host, apiClient, clusterRebalance, currentState, rebalanceAnnotation, rebalanceOptionsBuilder)
-                .compose(desiredStatus -> {
-                    // due to a long rebalancing operation that takes the lock for the entire period, more events related to resource modification could be
-                    // queued with a stale resource (updated by the rebalancing holding the lock), so we need to get the current fresh resource
-                    return clusterRebalanceOperator.getAsync(reconciliation.namespace(), reconciliation.name())
-                            .compose(freshClusterRebalance -> updateStatus(freshClusterRebalance, desiredStatus, clusterRebalanceOperator, null)
-                                    .compose(c -> {
-                                        log.info("{}: State updated to [{}] with annotation {}={} ",
-                                                reconciliation,
-                                                c.getStatus().getConditions().get(0).getType(),
-                                                ANNO_STRIMZI_IO_REBALANCE,
-                                                rebalanceAnnotation(c));
-                                        if (hasRebalanceAnnotation(c)) {
-                                            log.debug("{}: Removing annotation {}={}", reconciliation, ANNO_STRIMZI_IO_REBALANCE,
-                                                    rebalanceAnnotation(c));
-                                            KafkaClusterRebalance patchedClusterRebalance = new KafkaClusterRebalanceBuilder(c)
-                                                    .editMetadata().removeFromAnnotations(ANNO_STRIMZI_IO_REBALANCE).endMetadata().build();
-
-                                            return clusterRebalanceOperator.patchAsync(patchedClusterRebalance);
-                                        } else {
-                                            log.info("{}: No annotation {}", reconciliation, ANNO_STRIMZI_IO_REBALANCE);
-                                            return Future.succeededFuture();
-                                        }
-                                    }).mapEmpty(), exception -> {
-                                    log.error("{}: Status updated to [NotReady] due to error", exception);
-                                    return updateStatus(clusterRebalance, new KafkaClusterRebalanceStatus(), clusterRebalanceOperator, exception)
-                                            .mapEmpty();
-                                });
-                }, exception -> {
-                        log.error("{}: Status updated to [NotReady] due to error", exception);
-                        return updateStatus(clusterRebalance, new KafkaClusterRebalanceStatus(), clusterRebalanceOperator, exception)
-                                .mapEmpty();
-                    });
-                    */
     }
 
     private Future<KafkaClusterRebalanceStatus> computeNextStatus(Reconciliation reconciliation,
