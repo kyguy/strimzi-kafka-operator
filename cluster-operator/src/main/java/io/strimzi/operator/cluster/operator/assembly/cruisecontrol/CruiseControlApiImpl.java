@@ -182,24 +182,6 @@ public class CruiseControlApiImpl implements CruiseControlApi {
                                 result.complete(ccResponse);
                             }
                         });
-                    } else if (response.statusCode() == 500) {
-                        response.bodyHandler(buffer -> {
-                            String userTaskID = response.getHeader(CC_REST_API_USER_ID_HEADER);
-                            JsonObject json = buffer.toJsonObject();
-                            CruiseControlResponse ccResponse = new CruiseControlResponse(userTaskID, json);
-                            if (json.containsKey(CC_REST_API_ERROR_KEY)) {
-                                // in this case "NotEnoughValidWindowsException" is the cause of the main exception
-                                // and it's provided by the REST API just in the "stackTrace"
-                                if (json.getString(CC_REST_API_STACKTRACE_KEY).contains("NotEnoughValidWindowsException")) {
-                                    ccResponse.setNotEnoughDataForProposal(true);
-                                    result.complete(ccResponse);
-                                } else {
-                                    result.fail(json.getString(CC_REST_API_ERROR_KEY));
-                                }
-                            } else {
-                                result.complete(ccResponse);
-                            }
-                        });
                     } else {
                         result.fail(new CruiseControlRestException(
                                 "Unexpected status code " + response.statusCode() + " for GET request to " +

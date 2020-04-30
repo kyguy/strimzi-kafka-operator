@@ -138,6 +138,7 @@ public class CruiseControlClientTest {
         client.rebalance(HOST, PORT, rbOptions, MockCruiseControl.REBALANCE_NOT_ENOUGH_VALID_WINDOWS_ERROR)
                 .setHandler(result -> {
                     if (result.succeeded()) {
+                        assertThat(result.result().thereIsNotEnoughDataForProposal(), is(true));
                         context.completeNow();
                     } else {
                         context.failNow(result.cause());

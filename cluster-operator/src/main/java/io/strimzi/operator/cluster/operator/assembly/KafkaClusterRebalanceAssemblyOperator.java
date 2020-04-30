@@ -315,15 +315,15 @@ public class KafkaClusterRebalanceAssemblyOperator
                                     return Future.succeededFuture();
                                 }
                             }, exception -> {
-                                log.error("{}: Status updated to [NotReady] due to error", exception);
-                                return updateStatus(clusterRebalance, new KafkaClusterRebalanceStatus(), clusterRebalanceOperator, exception)
-                                        .mapEmpty();
-                            });
+                                    log.error("{}: Status updated to [NotReady] due to error", exception);
+                                    return updateStatus(clusterRebalance, new KafkaClusterRebalanceStatus(), clusterRebalanceOperator, exception)
+                                            .mapEmpty();
+                                });
                 }, exception -> {
-                    log.error("{}: Status updated to [NotReady] due to error", exception);
-                    return updateStatus(clusterRebalance, new KafkaClusterRebalanceStatus(), clusterRebalanceOperator, exception)
-                            .mapEmpty();
-                });
+                        log.error("{}: Status updated to [NotReady] due to error", exception);
+                        return updateStatus(clusterRebalance, new KafkaClusterRebalanceStatus(), clusterRebalanceOperator, exception)
+                                .mapEmpty();
+                    });
     }
 
     private Future<KafkaClusterRebalanceStatus> computeNextStatus(Reconciliation reconciliation,
