@@ -37,6 +37,10 @@ spec:
                 available at https://github.com/linkedin/cruise-control#goals.Providing
                 empty goals means to use all the ones declared in the default.goals
                 cruise control configuration parameter.
+            skipHardGoalCheck:
+              type: boolean
+              description: Whether allow hard goals be skipped in proposal generation.
+                Default is false.
             verbose:
               type: boolean
               description: Enable the verbose mode for the JSON string describing
