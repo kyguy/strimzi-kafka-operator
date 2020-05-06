@@ -50,7 +50,33 @@ import java.util.function.Function;
 import static io.strimzi.operator.cluster.operator.resource.cruisecontrol.CruiseControlApi.CC_REST_API_SUMMARY;
 
 /**
- * <p>Assembly operator for a "Kafka Cluster Rebalance" assembly, which interacts with Cruise Control REST API</p>
+ * <p>Assembly operator for a "KafkaRebalance" assembly, which interacts with Cruise Control REST API</p>
+ *
+ * <p>
+ *     This operator takes care of the {@code KafkaRebalance} custom resources that a user can create in order
+ *     to interact with Cruise Control REST API and execute a cluster rebalancing.
+ *     A state machine is used for the rebalacing flow which is reflected in the {@code status} of the custom resource.
+ *
+ *     When a new {@code KafkaRebalance} custom resource is created, the operator sends a rebalance proposal
+ *     request to the Cruise Control REST API and moves to the {@code PendingProposal} state. It stays in this state
+ *     until a the rebalance proposal is ready, polling the related status on Cruise Control, and then finally moves
+ *     to the {@ProposalReady} state. The status of the {@code KafkaRebalance} custom resource is updated with the
+ *     computed rebalance proposal so that the user can view it and making a decision to execute it or not.
+ *     For starting the actual rebalancing on the cluster, the user annotate the custom resource with
+ *     the {@code strimzi.io/rebalance=approve} annotation, triggering the operator to send a rebalance request to the
+ *     Cruise Control REST API in order to execute the rebalancing.
+ *     During the rebalancing, the operator state machine is in the {@code Rebalancing} state and it moves finally
+ *     to the {@code Ready} state when the rebalancing is done.
+ *
+ *     The user is also able to stop an in-progress rebalance proposal computation or an actual rebalancing,
+ *     annotating the custom resource with {@code strimzi.io/rebalance=stop} when it is in {@PendingProposal}
+ *     or {@code Rebalancing} state; the operator moves to the {@code Stopped} state and the user can request a new
+ *     proposal applying the {@code strimzi.io/rebalance=refresh} annotation on the custom resource.
+ *
+ *     Finally, when a proposal is ready but it is stale because the user haven't approve it right after the
+ *     computation, so that the cluster conditions could be change, he can refresh the proposal annotating
+ *     the custom resource with the {@code strimzi.io/rebalance=refresh} annotation.
+ * </p>
  */
 public class KafkaRebalanceAssemblyOperator
         extends AbstractOperator<KafkaRebalance, AbstractWatchableResourceOperator<KubernetesClient, KafkaRebalance, KafkaRebalanceList, DoneableKafkaRebalance, Resource<KafkaRebalance, DoneableKafkaRebalance>>> {
