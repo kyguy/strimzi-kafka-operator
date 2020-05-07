@@ -14,7 +14,6 @@ import io.strimzi.api.kafka.model.CruiseControlSpecBuilder;
 import io.strimzi.api.kafka.model.DoneableKafka;
 import io.strimzi.api.kafka.model.DoneableKafkaRebalance;
 import io.strimzi.api.kafka.model.Kafka;
-import io.strimzi.api.kafka.model.KafkaBridge;
 import io.strimzi.api.kafka.model.KafkaBuilder;
 import io.strimzi.api.kafka.model.KafkaRebalance;
 import io.strimzi.api.kafka.model.KafkaRebalanceBuilder;
@@ -110,8 +109,8 @@ public class KafkaRebalanceAssemblyOperatorTest {
     public void testNewRebalance(Vertx vertx, VertxTestContext context) throws IOException, URISyntaxException {
 
         // Setup the rebalance user tasks endpoints with the number of pending calls before a response is received.
-        MockCruiseControl.setupCCRebalanceResponse(ccServer);
-        MockCruiseControl.setupCCUserTasksResponse(ccServer, 0);
+        MockCruiseControl.setupCCRebalanceResponse(ccServer, 0);
+        MockCruiseControl.setupCCUserTasksResponseNoGoals(ccServer, 0, 0);
 
         Map<String, String> labels = new HashMap<>();
         labels.put(Labels.STRIMZI_CLUSTER_LABEL, "my-test-cluster");
@@ -148,12 +147,12 @@ public class KafkaRebalanceAssemblyOperatorTest {
 
         when(mockKafkaOps.getAsync(anyString(), anyString())).thenReturn(Future.succeededFuture(kafka));
         when(mockRebalanceOps.get(CLUSTER_NAMESPACE, CLUSTER_NAME)).thenReturn(kcRebalance);
-        when(mockRebalanceOps.getAsync(anyString(), anyString())).thenReturn(Future.succeededFuture(kcRebalance));
+        when(mockRebalanceOps.getAsync(CLUSTER_NAMESPACE, CLUSTER_NAME)).thenReturn(Future.succeededFuture(kcRebalance));
         when(mockRebalanceOps.updateStatusAsync(any(KafkaRebalance.class))).thenReturn(Future.succeededFuture(kcRebalance));
 
         Checkpoint async = context.checkpoint();
         kcrao.createOrUpdate(
-                new Reconciliation("test-trigger", KafkaBridge.RESOURCE_KIND, CLUSTER_NAMESPACE, CLUSTER_NAME),
+                new Reconciliation("test-trigger", KafkaRebalance.RESOURCE_KIND, CLUSTER_NAMESPACE, CLUSTER_NAME),
                 kcRebalance).setHandler(createResult -> {
                     if (createResult.succeeded()) {
                         context.completeNow();
