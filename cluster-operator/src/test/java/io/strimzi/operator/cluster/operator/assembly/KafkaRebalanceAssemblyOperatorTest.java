@@ -13,7 +13,6 @@ import io.strimzi.api.kafka.model.CruiseControlSpecBuilder;
 import io.strimzi.api.kafka.model.DoneableKafka;
 import io.strimzi.api.kafka.model.DoneableKafkaRebalance;
 import io.strimzi.api.kafka.model.Kafka;
-import io.strimzi.api.kafka.model.KafkaBridge;
 import io.strimzi.api.kafka.model.KafkaBuilder;
 import io.strimzi.api.kafka.model.KafkaRebalance;
 import io.strimzi.api.kafka.model.KafkaRebalanceBuilder;
@@ -166,7 +165,7 @@ public class KafkaRebalanceAssemblyOperatorTest {
         });
 
         kcrao.reconcileRebalance(
-                new Reconciliation("test-trigger", KafkaBridge.RESOURCE_KIND, CLUSTER_NAMESPACE, RESOURCE_NAME),
+                new Reconciliation("test-trigger", KafkaRebalance.RESOURCE_KIND, CLUSTER_NAMESPACE, RESOURCE_NAME),
                 kcRebalance).setHandler(context.succeeding(v -> context.verify(() -> {
                     KafkaRebalance kr = Crds.kafkaRebalanceOperation(client).inNamespace(CLUSTER_NAMESPACE).withName(RESOURCE_NAME).get();
                     assertThat(kr, notNullValue());
