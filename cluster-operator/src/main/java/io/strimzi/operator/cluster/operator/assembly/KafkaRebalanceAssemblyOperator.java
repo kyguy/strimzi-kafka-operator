@@ -186,7 +186,7 @@ public class KafkaRebalanceAssemblyOperator
 
                     log.debug("{}: EventReceived {} on {} with status [{}] and {}={}", reconciliation, action,
                             kafkaRebalance.getMetadata().getName(),
-                            kafkaRebalance.getStatus() != null ? getRebalanceStateConditionStatus(kafkaRebalance.getStatus()) : null,
+                            kafkaRebalance.getStatus() != null ? rebalanceStateConditionStatus(kafkaRebalance.getStatus()) : null,
                             ANNO_STRIMZI_IO_REBALANCE, rawRebalanceAnnotation(kafkaRebalance));
 
                     withLock(reconciliation, LOCK_TIMEOUT_MS,
@@ -210,25 +210,25 @@ public class KafkaRebalanceAssemblyOperator
      * {@link KafkaRebalanceStatus#REBALANCE_STATUS_CONDITION_TYPE}. If there are none it will return null. If there are
      * more than one it will throw a RuntimeException. If there is only one it will return that Condition.
      *
-     * @param status The status instance whose conditions will be searched.
+     * @param status The KafkaRebalanceStatus instance whose conditions will be searched.
      * @return The Condition instance from the supplied status that has type {@link KafkaRebalanceStatus#REBALANCE_STATUS_CONDITION_TYPE}.
      *         If none are found then the method will return null.
      * @throws RuntimeException If there is more than one Condition instance in the supplied status with the type
      *                          {@link KafkaRebalanceStatus#REBALANCE_STATUS_CONDITION_TYPE}.
      */
-    private Condition getRebalanceStateCondition(KafkaRebalanceStatus status) {
+    private Condition rebalanceStateCondition(KafkaRebalanceStatus status) {
         if (status.getConditions() != null) {
 
             List<Condition> statusConditions = status.getConditions()
                     .stream()
-                    .filter(condition -> condition.getType() != null)
-                    .filter(condition -> condition.getType().equals(KafkaRebalanceStatus.REBALANCE_STATUS_CONDITION_TYPE))
+                    .filter(condition -> condition.getType() != null &&
+                            condition.getType().equals(KafkaRebalanceStatus.REBALANCE_STATUS_CONDITION_TYPE))
                     .collect(Collectors.toList());
 
             if (statusConditions.size() == 1) {
                 return statusConditions.get(0);
             } else if (statusConditions.size() > 1) {
-                throw new RuntimeException("Multiple Rebalance State Conditions where present in the Rebalance Status");
+                throw new RuntimeException("Multiple KafkaRebalance State Conditions were present in the KafkaRebalance status");
             }
         }
         // If there are no conditions or none that have the correct status
@@ -242,8 +242,8 @@ public class KafkaRebalanceAssemblyOperator
      * @param status The status instance whose conditions will be searched.
      * @return The status of the rebalance condition.
      */
-    private String getRebalanceStateConditionStatus(KafkaRebalanceStatus status) {
-        Condition rebalanceStateCondition = getRebalanceStateCondition(status);
+    private String rebalanceStateConditionStatus(KafkaRebalanceStatus status) {
+        Condition rebalanceStateCondition = rebalanceStateCondition(status);
         return rebalanceStateCondition != null ? rebalanceStateCondition.getStatus() : null;
     }
 
@@ -251,7 +251,7 @@ public class KafkaRebalanceAssemblyOperator
                                                 KafkaRebalanceStatus desiredStatus,
                                                 Throwable e) {
 
-        String rebalanceStatusString = getRebalanceStateConditionStatus(desiredStatus);
+        String rebalanceStatusString = rebalanceStateConditionStatus(desiredStatus);
 
         if (e != null) {
             StatusUtils.setStatusConditionAndObservedGeneration(kafkaRebalance, desiredStatus,
@@ -383,7 +383,7 @@ public class KafkaRebalanceAssemblyOperator
                                             .compose(updatedKafkaRebalance -> {
                                                 log.info("{}: State updated to [{}] with annotation {}={} ",
                                                         reconciliation,
-                                                        getRebalanceStateConditionStatus(updatedKafkaRebalance.getStatus()),
+                                                        rebalanceStateConditionStatus(updatedKafkaRebalance.getStatus()),
                                                         ANNO_STRIMZI_IO_REBALANCE,
                                                         rawRebalanceAnnotation(updatedKafkaRebalance));
                                                 if (hasRebalanceAnnotation(updatedKafkaRebalance)) {
@@ -482,14 +482,8 @@ public class KafkaRebalanceAssemblyOperator
             return onNew(reconciliation, host, apiClient, rebalanceOptionsBuilder);
         } else {
             // stay in the current error state, actually failing the Future
-            Condition statusCondition = getRebalanceStateCondition(kafkaRebalance.getStatus());
-            String statusMessage;
-            if (statusCondition != null) {
-                statusMessage = statusCondition.getMessage();
-            } else {
-                statusMessage = "Error retrieving status message";
-            }
-            return Future.failedFuture(statusMessage);
+            Condition statusCondition = rebalanceStateCondition(kafkaRebalance.getStatus());
+            return Future.failedFuture(statusCondition != null ? statusCondition.getMessage() : "Error retrieving status message");
         }
     }
 
@@ -842,11 +836,11 @@ public class KafkaRebalanceAssemblyOperator
                                             if (kafkaRebalanceStatus == null) {
                                                 currentState = State.New;
                                             } else {
-                                                String rebalanceStateConditionStatus = getRebalanceStateConditionStatus(kafkaRebalanceStatus);
+                                                String rebalanceStateConditionStatus = rebalanceStateConditionStatus(kafkaRebalanceStatus);
                                                 if (rebalanceStateConditionStatus != null) {
                                                     currentState = State.valueOf(rebalanceStateConditionStatus);
                                                 } else {
-                                                    throw new RuntimeException("Unable to find Rebalace State in current Rebalance Status");
+                                                    throw new RuntimeException("Unable to find KafkaRebalace State in current KafkaRebalance status");
                                                 }
                                             }
                                             // check annotation
@@ -995,7 +989,7 @@ public class KafkaRebalanceAssemblyOperator
     private State state(KafkaRebalance kafkaRebalance) {
         KafkaRebalanceStatus rebalanceStatus = kafkaRebalance.getStatus();
         if (rebalanceStatus != null) {
-            String statusString = getRebalanceStateConditionStatus(rebalanceStatus);
+            String statusString = rebalanceStateConditionStatus(rebalanceStatus);
             if (statusString != null) {
                 return State.valueOf(statusString);
             }

@@ -18,6 +18,7 @@ import io.strimzi.api.kafka.model.KafkaRebalance;
 import io.strimzi.api.kafka.model.KafkaRebalanceBuilder;
 import io.strimzi.api.kafka.model.KafkaRebalanceSpec;
 import io.strimzi.api.kafka.model.KafkaRebalanceSpecBuilder;
+import io.strimzi.api.kafka.model.status.KafkaRebalanceStatus;
 import io.strimzi.operator.KubernetesVersion;
 import io.strimzi.operator.PlatformFeaturesAvailability;
 import io.strimzi.operator.cluster.KafkaVersionTestUtils;
@@ -171,7 +172,8 @@ public class KafkaRebalanceAssemblyOperatorTest {
                     assertThat(kr, notNullValue());
                     assertThat(kr.getStatus(), notNullValue());
                     assertThat(kr.getStatus().getConditions(), notNullValue());
-                    assertThat(kr.getStatus().getConditions().get(0).getType(), is(KafkaRebalanceAssemblyOperator.State.ProposalReady.toString()));
+                    assertThat(kr.getStatus().getConditions().get(0).getType(), is(KafkaRebalanceStatus.REBALANCE_STATUS_CONDITION_TYPE));
+                    assertThat(kr.getStatus().getConditions().get(0).getStatus(), is(KafkaRebalanceAssemblyOperator.State.ProposalReady.toString()));
                     context.completeNow();
                 })));
     }
