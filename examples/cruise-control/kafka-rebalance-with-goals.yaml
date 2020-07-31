@@ -10,4 +10,5 @@ spec:
     - DiskCapacityGoal
     - RackAwareGoal
     - NetworkOutboundCapacityGoal
+    - CpuCapacityGoal
     - ReplicaCapacityGoal

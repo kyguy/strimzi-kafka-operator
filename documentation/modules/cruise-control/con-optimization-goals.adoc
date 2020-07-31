@@ -13,12 +13,10 @@ The supported goals, in the default descending order of priority, are as follows
 
 . Rack-awareness
 . Replica capacity
-. Capacity: Disk capacity, Network inbound capacity, Network outbound capacity
-//.. CPU capacity
+. Capacity: Disk capacity, Network inbound capacity, Network outbound capacity, CPU capacity
 . Replica distribution
 . Potential network output
-. Resource distribution: Disk utilization distribution, Network inbound utilization distribution, Network outbound utilization distribution
-//.. CPU utilization distribution
+. Resource distribution: Disk utilization distribution, Network inbound utilization distribution, Network outbound utilization distribution, CPU utilization distribution
 . Leader bytes-in rate distribution
 . Topic replica distribution
 . Leader replica distribution
