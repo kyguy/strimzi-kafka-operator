@@ -310,6 +310,6 @@ public class KafkaExporter extends AbstractModel {
         }
         Secret secret = clusterCa.kafkaExporterSecret();
         return ModelUtils.buildSecret(clusterCa, secret, namespace, KafkaExporter.secretName(cluster), name,
-                "kafka-exporter", labels, createOwnerReference(), isMaintenanceTimeWindowsSatisfied);
+                "kafka-exporter", labels, null, createOwnerReference(), isMaintenanceTimeWindowsSatisfied);
     }
 }

@@ -1216,7 +1216,7 @@ public class CertificateRenewalTest {
         boolean isMaintenanceTimeWindowsSatisfied = true;
 
         Secret newSecret = ModelUtils.buildSecret(clusterCaMock, null, namespace, secretName, commonName,
-                keyCertName, labels, ownerReference, isMaintenanceTimeWindowsSatisfied);
+                keyCertName, labels, null, ownerReference, isMaintenanceTimeWindowsSatisfied);
 
         assertThat(newSecret.getData(), hasEntry("deployment.crt", newCertAndKey.certAsBase64String()));
         assertThat(newSecret.getData(), hasEntry("deployment.key", newCertAndKey.keyAsBase64String()));
@@ -1250,7 +1250,7 @@ public class CertificateRenewalTest {
         boolean isMaintenanceTimeWindowsSatisfied = true;
 
         Secret newSecret = ModelUtils.buildSecret(clusterCaMock, initialSecret, namespace, secretName, commonName,
-                keyCertName, labels, ownerReference, isMaintenanceTimeWindowsSatisfied);
+                keyCertName, labels, null, ownerReference, isMaintenanceTimeWindowsSatisfied);
 
         assertThat(newSecret.getData(), hasEntry("deployment.crt", newCertAndKey.certAsBase64String()));
         assertThat(newSecret.getData(), hasEntry("deployment.key", newCertAndKey.keyAsBase64String()));
@@ -1284,7 +1284,7 @@ public class CertificateRenewalTest {
         boolean isMaintenanceTimeWindowsSatisfied = true;
 
         Secret newSecret = ModelUtils.buildSecret(clusterCaMock, initialSecret, namespace, secretName, commonName,
-                keyCertName, labels, ownerReference, isMaintenanceTimeWindowsSatisfied);
+                keyCertName, labels, null, ownerReference, isMaintenanceTimeWindowsSatisfied);
 
         assertThat(newSecret.getData(), hasEntry("deployment.crt", newCertAndKey.certAsBase64String()));
         assertThat(newSecret.getData(), hasEntry("deployment.key", newCertAndKey.keyAsBase64String()));
@@ -1318,7 +1318,7 @@ public class CertificateRenewalTest {
         boolean isMaintenanceTimeWindowsSatisfied = false;
 
         Secret newSecret = ModelUtils.buildSecret(clusterCaMock, initialSecret, namespace, secretName, commonName,
-                keyCertName, labels, ownerReference, isMaintenanceTimeWindowsSatisfied);
+                keyCertName, labels, null, ownerReference, isMaintenanceTimeWindowsSatisfied);
 
         assertThat(newSecret.getData(), hasEntry("deployment.crt", Base64.getEncoder().encodeToString("old-cert".getBytes())));
         assertThat(newSecret.getData(), hasEntry("deployment.key", Base64.getEncoder().encodeToString("old-key".getBytes())));

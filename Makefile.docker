@@ -9,9 +9,9 @@ TOPDIR=$(dir $(lastword $(MAKEFILE_LIST)))
 DOCKERFILE_DIR     ?= ./
 DOCKER_CMD         ?= docker
 DOCKER_REGISTRY    ?= docker.io
-DOCKER_ORG         ?= $(USER)
-DOCKER_TAG         ?= latest
-BUILD_TAG          ?= latest
+DOCKER_ORG         ?= strimzi#$(USER)
+DOCKER_TAG         ?= build-latest
+BUILD_TAG          ?= build-latest
 RELEASE_VERSION    ?= $(shell cat $(TOPDIR)/release.version)
 
 all: docker_build docker_push
@@ -31,7 +31,7 @@ docker_tag_default:
 
 docker_push_default: docker_tag
 	# Push the $(DOCKER_TAG)-tagged image to the registry
-	$(DOCKER_CMD) push $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(PROJECT_NAME):$(DOCKER_TAG)
+	#$(DOCKER_CMD) push $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(PROJECT_NAME):$(DOCKER_TAG)
 
 docker_%: docker_%_default
 	@  true

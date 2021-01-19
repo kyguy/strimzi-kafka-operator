@@ -29,4 +29,10 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
-  cruiseControl: {}
+  cruiseControl:
+    config:
+      webserver.http.cors.enabled: true
+      webserver.http.cors.exposeheaders: User-Task-ID,Content-Type
+      webserver.http.cors.origin: http://127.0.0.1:8090
+      webserver.security.enable: true
+      webserver.ssl.enable: false

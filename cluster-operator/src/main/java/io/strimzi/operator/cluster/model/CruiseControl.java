@@ -8,6 +8,7 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.HTTPHeader;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.LifecycleBuilder;
@@ -45,11 +46,15 @@ import io.strimzi.operator.cluster.ClusterOperatorConfig;
 import io.strimzi.operator.cluster.model.cruisecontrol.Capacity;
 import io.strimzi.operator.cluster.operator.resource.cruisecontrol.CruiseControlConfigurationParameters;
 import io.strimzi.operator.common.Annotations;
+import io.strimzi.operator.common.PasswordGenerator;
 import io.strimzi.operator.common.model.Labels;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +72,20 @@ public class CruiseControl extends AbstractModel {
     public static final String CRUISE_CONTROL_METRIC_REPORTER = "com.linkedin.kafka.cruisecontrol.metricsreporter.CruiseControlMetricsReporter";
 
     protected static final String CRUISE_CONTROL_CONTAINER_NAME = "cruise-control";
+
+    public static final String HTTP_SCHEME = "HTTP";
+    public static final String HTTPS_SCHEME = "HTTPS";
+
+    // Fields used for Cruise Control API authentication
+    public static final String API_ADMIN_NAME = "admin";
+    public static final String API_ADMIN_ROLE = "ADMIN";
+    public static final String API_USER_NAME = "user";
+    public static final String API_USER_PASSWORD = "user";
+    public static final String API_USER_ROLE = "USER";
+    public static final String API_ADMIN_PASSWORD_KEY = APPLICATION_NAME + ".apiAdminPassword";
+    public static final String API_USER_PASSWORD_KEY = APPLICATION_NAME + ".apiAdminPassword";
+    public static final String API_AUTH_FILE_KEY = APPLICATION_NAME + ".apiAuthFile";
+
     protected static final String TLS_SIDECAR_NAME = "tls-sidecar";
     protected static final String TLS_SIDECAR_CC_CERTS_VOLUME_NAME = "cc-certs";
     protected static final String TLS_SIDECAR_CC_CERTS_VOLUME_MOUNT = "/etc/tls-sidecar/cc-certs/";
@@ -74,6 +93,8 @@ public class CruiseControl extends AbstractModel {
     protected static final String TLS_SIDECAR_CA_CERTS_VOLUME_MOUNT = "/etc/tls-sidecar/cluster-ca-certs/";
     protected static final String LOG_AND_METRICS_CONFIG_VOLUME_NAME = "cruise-control-metrics-and-logging";
     protected static final String LOG_AND_METRICS_CONFIG_VOLUME_MOUNT = "/opt/cruise-control/custom-config/";
+    private static final String CC_AUTH_CREDENTIALS_FILENAME = API_AUTH_FILE_KEY;
+
     private static final String NAME_SUFFIX = "-cruise-control";
 
     public static final String ANNO_STRIMZI_IO_LOGGING = Annotations.STRIMZI_DOMAIN + "logging";
@@ -84,7 +105,10 @@ public class CruiseControl extends AbstractModel {
 
     // Configuration defaults
     protected static final int DEFAULT_REPLICAS = 1;
+    protected static final String DEFAULT_URI_SCHEME = HTTPS_SCHEME;
     public static final boolean DEFAULT_CRUISE_CONTROL_METRICS_ENABLED = false;
+    public static final boolean DEFAULT_WEBSERVER_SECURITY_ENABLED = true;
+    public static final boolean DEFAULT_WEBSERVER_SSL_ENABLED = true;
 
     // Default probe settings (liveness and readiness) for health checks
     protected static final int DEFAULT_HEALTHCHECK_DELAY = 15;
@@ -98,6 +122,8 @@ public class CruiseControl extends AbstractModel {
     private TlsSidecar tlsSidecar;
     private String tlsSidecarImage;
     private String minInsyncReplicas = "1";
+    public String uriScheme = HTTPS_SCHEME;
+    public boolean authEnabled = DEFAULT_WEBSERVER_SECURITY_ENABLED;
     private Double brokerDiskMiBCapacity;
     private int brokerCpuUtilizationCapacity;
     private Double brokerInboundNetworkKiBPerSecondCapacity;
@@ -166,6 +192,34 @@ public class CruiseControl extends AbstractModel {
         return KafkaCluster.serviceName(cluster) + ":" + DEFAULT_BOOTSTRAP_SERVERS_PORT;
     }
 
+    public static String encodeToBase64(String s) {
+        return Base64.getEncoder().encodeToString(s.getBytes(StandardCharsets.US_ASCII));
+    }
+
+    public static String getAuthCredentialsFile() {
+        return String.join("/", TLS_SIDECAR_CC_CERTS_VOLUME_MOUNT, TLS_SIDECAR_CC_CERTS_VOLUME_NAME,  CC_AUTH_CREDENTIALS_FILENAME);
+    }
+
+    private static boolean isEnabled(CruiseControlConfiguration config, String s1, String s2) {
+        String s = config.getConfigOption(s1, s2);
+        return Boolean.parseBoolean(s);
+    }
+
+    public static boolean isApiAuthEnabled(CruiseControlConfiguration config) {
+        return isEnabled(config, CruiseControlConfigurationParameters.CRUISE_CONTROL_WEBSERVER_SECURITY_ENABLE.getName(), Boolean.toString(DEFAULT_WEBSERVER_SECURITY_ENABLED));
+    }
+
+    public static boolean isApiSslEnabled(CruiseControlConfiguration config) {
+        return isEnabled(config, CruiseControlConfigurationParameters.CRUISE_CONTROL_WEBSERVER_SSL_ENABLE.getName(), Boolean.toString(DEFAULT_WEBSERVER_SSL_ENABLED));
+    }
+
+    public static HTTPHeader generateAuthHttpHeader(String user, String password) {
+        String headerName = "Authorization";
+        String headerValue = "Basic " + encodeToBase64(String.join(":", user, password));
+
+        return new HTTPHeader(headerName, headerValue);
+    }
+
     public static CruiseControl fromCrd(Kafka kafkaAssembly, KafkaVersion.Lookup versions) {
         CruiseControl cruiseControl = null;
         CruiseControlSpec spec  = kafkaAssembly.getSpec().getCruiseControl();
@@ -197,6 +251,15 @@ public class CruiseControl extends AbstractModel {
             cruiseControl.setTlsSidecar(tlsSidecar);
 
             cruiseControl = updateConfiguration(spec, cruiseControl);
+            CruiseControlConfiguration c = (CruiseControlConfiguration) cruiseControl.getConfiguration();
+            Boolean sslEnabled = isApiSslEnabled(c);
+            if (sslEnabled) {
+                cruiseControl.uriScheme = HTTPS_SCHEME;
+            } else {
+                cruiseControl.uriScheme = HTTP_SCHEME;
+            }
+
+            cruiseControl.authEnabled  = isApiAuthEnabled(c);
 
             KafkaConfiguration configuration = new KafkaConfiguration(kafkaClusterSpec.getConfig().entrySet());
             if (configuration.getConfigOption(MIN_INSYNC_REPLICAS) != null) {
@@ -333,6 +396,13 @@ public class CruiseControl extends AbstractModel {
         return CruiseControlResources.serviceName(cluster);
     }
 
+    private List<HTTPHeader> getHttpHeaders() {
+        if (this.authEnabled) {
+            return Arrays.asList(generateAuthHttpHeader(API_USER_NAME, API_USER_PASSWORD));
+        }
+        return null;
+    }
+
     public Service generateService() {
         if (!isDeployed()) {
             return null;
@@ -355,15 +425,21 @@ public class CruiseControl extends AbstractModel {
     }
 
     protected List<Volume> getVolumes(boolean isOpenShift) {
-        return Arrays.asList(createSecretVolume(TLS_SIDECAR_CC_CERTS_VOLUME_NAME, CruiseControl.secretName(cluster), isOpenShift),
+        Secret s = new Secret();
+        return Arrays.asList(
+                createSecretVolume(TLS_SIDECAR_CC_CERTS_VOLUME_NAME, CruiseControl.secretName(cluster), isOpenShift),
                 createSecretVolume(TLS_SIDECAR_CA_CERTS_VOLUME_NAME, AbstractModel.clusterCaCertSecretName(cluster), isOpenShift),
+
                 createConfigMapVolume(logAndMetricsConfigVolumeName, ancillaryConfigMapName));
     }
 
     protected List<VolumeMount> getVolumeMounts() {
-        return Arrays.asList(createVolumeMount(CruiseControl.TLS_SIDECAR_CC_CERTS_VOLUME_NAME, CruiseControl.TLS_SIDECAR_CC_CERTS_VOLUME_MOUNT),
+        return Arrays.asList(
+                createVolumeMount(CruiseControl.TLS_SIDECAR_CC_CERTS_VOLUME_NAME, CruiseControl.TLS_SIDECAR_CC_CERTS_VOLUME_MOUNT),
                 createVolumeMount(CruiseControl.TLS_SIDECAR_CA_CERTS_VOLUME_NAME, CruiseControl.TLS_SIDECAR_CA_CERTS_VOLUME_MOUNT),
-                createVolumeMount(logAndMetricsConfigVolumeName, logAndMetricsConfigMountPath));
+
+                createVolumeMount(logAndMetricsConfigVolumeName, logAndMetricsConfigMountPath)
+        );
     }
 
     public Deployment generateDeployment(boolean isOpenShift, Map<String, String> annotations, ImagePullPolicy imagePullPolicy, List<LocalObjectReference> imagePullSecrets) {
@@ -392,6 +468,7 @@ public class CruiseControl extends AbstractModel {
 
     @Override
     protected List<Container> getContainers(ImagePullPolicy imagePullPolicy) {
+
         List<Container> containers = new ArrayList<>(2);
         Container container = new ContainerBuilder()
                 .withName(CRUISE_CONTROL_CONTAINER_NAME)
@@ -399,8 +476,8 @@ public class CruiseControl extends AbstractModel {
                 .withCommand("/opt/cruise-control/cruise_control_run.sh")
                 .withEnv(getEnvVars())
                 .withPorts(getContainerPortList())
-                .withLivenessProbe(ProbeGenerator.httpProbe(livenessProbeOptions, livenessPath, REST_API_PORT_NAME))
-                .withReadinessProbe(ProbeGenerator.httpProbe(readinessProbeOptions, readinessPath, REST_API_PORT_NAME))
+                .withLivenessProbe(ProbeGenerator.httpProbe(livenessProbeOptions, livenessPath, REST_API_PORT_NAME, uriScheme, getHttpHeaders()))
+                .withReadinessProbe(ProbeGenerator.httpProbe(readinessProbeOptions, readinessPath, REST_API_PORT_NAME, uriScheme, getHttpHeaders()))
                 .withResources(getResources())
                 .withVolumeMounts(getVolumeMounts())
                 .withImagePullPolicy(determineImagePullPolicy(imagePullPolicy, getImage()))
@@ -526,6 +603,31 @@ public class CruiseControl extends AbstractModel {
     }
 
     /**
+     * Creates Cruise Control API authentication usernames, passwords, and credentials file
+     *
+     * @return Cruise Control API authentication credentials
+     */
+    public Map<String, String> generateCruiseControlApiCredentials() {
+        PasswordGenerator passwordGenerator = new PasswordGenerator(16);
+        String adminApiPassword = passwordGenerator.generate();
+
+        /*
+         * Create Cruise Control API authentication credentials file following Jetty's
+         *  HashLoginService's file format: username: password [,rolename ...]
+         */
+        String authCredentialsFile =
+                API_ADMIN_NAME + " " + adminApiPassword + "," + API_ADMIN_ROLE + "\n" +
+                API_USER_NAME + " " + API_USER_PASSWORD + "," + API_USER_ROLE + "\n";
+
+        Map<String, String> data = new HashMap<>(3);
+        data.put(API_ADMIN_PASSWORD_KEY, encodeToBase64(adminApiPassword));
+        data.put(API_USER_PASSWORD_KEY, encodeToBase64(API_USER_PASSWORD));
+        data.put(API_AUTH_FILE_KEY, encodeToBase64(authCredentialsFile));
+
+        return data;
+    }
+
+    /**
      * Generate the Secret containing the Cruise Control certificate signed by the cluster CA certificate used for TLS based
      * internal communication with Kafka and Zookeeper.
      * It also contains the related Cruise Control private key.
@@ -539,8 +641,12 @@ public class CruiseControl extends AbstractModel {
         if (!isDeployed()) {
             return null;
         }
+
         Secret secret = clusterCa.cruiseControlSecret();
-        return ModelUtils.buildSecret(clusterCa, secret, namespace, CruiseControl.secretName(cluster), name, "cruise-control", labels, createOwnerReference(), isMaintenanceTimeWindowsSatisfied);
+
+        return ModelUtils.buildSecret(clusterCa, secret, namespace, CruiseControl.secretName(cluster), name,
+                "cruise-control", labels, generateCruiseControlApiCredentials(), createOwnerReference(),
+                isMaintenanceTimeWindowsSatisfied);
     }
 
     /**

@@ -4,26 +4,41 @@
  */
 package io.strimzi.operator.cluster.operator.resource.cruisecontrol;
 
+import io.fabric8.kubernetes.api.model.HTTPHeader;
+import io.fabric8.kubernetes.api.model.Secret;
+import io.strimzi.operator.cluster.model.CruiseControl;
+import io.strimzi.operator.cluster.operator.assembly.KafkaRebalanceAssemblyOperator;
+import io.strimzi.operator.common.Util;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.net.PfxOptions;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.net.ConnectException;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeoutException;
 
 public class CruiseControlApiImpl implements CruiseControlApi {
+    private static final Logger log = LogManager.getLogger(KafkaRebalanceAssemblyOperator.class.getName());
 
-    private static final boolean HTTP_CLIENT_ACTIVITY_LOGGING = false;
+    private static final boolean HTTP_CLIENT_ACTIVITY_LOGGING = true;
     private static final int HTTP_DEFAULT_IDLE_TIMEOUT_SECONDS = -1; // use default internal HTTP client timeout
     private static final String STATUS_KEY = "Status";
     private static final String SUMMARY_KEY = "summary";
 
     private final Vertx vertx;
     private final long idleTimeout;
+    private Secret ccApiSecret;
+    private Secret coKeySecret;
+    private boolean apiAuthEnabled;
+    private boolean apiSslEnabled;
 
     public CruiseControlApiImpl(Vertx vertx) {
         this(vertx, HTTP_DEFAULT_IDLE_TIMEOUT_SECONDS);
@@ -34,21 +49,56 @@ public class CruiseControlApiImpl implements CruiseControlApi {
         this.idleTimeout = idleTimeout;
     }
 
+    public CruiseControlApiImpl(Vertx vertx, Secret ccApiSecret, Secret coKeySecret, Boolean apiAuthEnabled, boolean apiSslEnabled) {
+        this.vertx = vertx;
+        this.idleTimeout = HTTP_DEFAULT_IDLE_TIMEOUT_SECONDS;
+        this.ccApiSecret = ccApiSecret;
+        this.coKeySecret = coKeySecret;
+        this.apiAuthEnabled = apiAuthEnabled;
+        this.apiSslEnabled = apiSslEnabled;
+    }
+
     @Override
     public Future<CruiseControlResponse> getCruiseControlState(String host, int port, boolean verbose) {
         return getCruiseControlState(host, port, verbose, null);
+    }
+
+    private HttpClientOptions getHttpClientOptions() {
+        if (apiSslEnabled) {
+            return new HttpClientOptions()
+                .setLogActivity(HTTP_CLIENT_ACTIVITY_LOGGING)
+                .setSsl(true)
+                .setTrustAll(true)
+                .setVerifyHost(false)
+                .setPfxKeyCertOptions(
+                    new PfxOptions()
+                        .setPassword(new String(Util.decodeFromSecret(coKeySecret, "cluster-operator.password"), StandardCharsets.US_ASCII))
+                        .setValue(Buffer.buffer(Util.decodeFromSecret(coKeySecret, "cluster-operator.p12")))
+                    );
+        } else {
+            return new HttpClientOptions()
+                    .setLogActivity(HTTP_CLIENT_ACTIVITY_LOGGING);
+        }
+    }
+
+    private void addHttpHeaders(HttpClientRequest request) {
+        String adminPassword = new String(Util.decodeFromSecret(ccApiSecret, CruiseControl.API_ADMIN_NAME), StandardCharsets.US_ASCII);
+        HTTPHeader header = CruiseControl.generateAuthHttpHeader(CruiseControl.API_ADMIN_NAME, adminPassword);
+        request.putHeader(header.getName(), header.getValue());
     }
 
     @SuppressWarnings("deprecation")
     public Future<CruiseControlResponse> getCruiseControlState(String host, int port, boolean verbose, String userTaskId) {
 
         Promise<CruiseControlResponse> result = Promise.promise();
-        HttpClientOptions options = new HttpClientOptions().setLogActivity(HTTP_CLIENT_ACTIVITY_LOGGING);
+        HttpClientOptions options = getHttpClientOptions();
 
         String path = new PathBuilder(CruiseControlEndpoints.STATE)
                 .addParameter(CruiseControlParameters.JSON, "true")
                 .addParameter(CruiseControlParameters.VERBOSE, String.valueOf(verbose))
                 .build();
+
+        io.vertx.core.http.HttpClient hc =  vertx.createHttpClient(options);
 
         HttpClientRequest request = vertx.createHttpClient(options)
                 .get(port, host, path, response -> {
@@ -82,6 +132,10 @@ public class CruiseControlApiImpl implements CruiseControlApi {
             request.putHeader(CC_REST_API_USER_ID_HEADER, userTaskId);
         }
 
+        if (apiAuthEnabled) {
+            addHttpHeaders(request);
+        }
+
         request.end();
 
         return result.future();
@@ -97,7 +151,7 @@ public class CruiseControlApiImpl implements CruiseControlApi {
         }
 
         Promise<CruiseControlRebalanceResponse> result = Promise.promise();
-        HttpClientOptions httpOptions = new HttpClientOptions().setLogActivity(HTTP_CLIENT_ACTIVITY_LOGGING);
+        HttpClientOptions httpOptions = getHttpClientOptions();
 
         String path = new PathBuilder(CruiseControlEndpoints.REBALANCE)
                 .addParameter(CruiseControlParameters.JSON, "true")
@@ -167,6 +221,7 @@ public class CruiseControlApiImpl implements CruiseControlApi {
             request.putHeader(CC_REST_API_USER_ID_HEADER, userTaskId);
         }
 
+        addHttpHeaders(request);
         request.end();
 
         return result.future();
@@ -177,7 +232,7 @@ public class CruiseControlApiImpl implements CruiseControlApi {
     public Future<CruiseControlResponse> getUserTaskStatus(String host, int port, String userTaskId) {
 
         Promise<CruiseControlResponse> result = Promise.promise();
-        HttpClientOptions options = new HttpClientOptions().setLogActivity(HTTP_CLIENT_ACTIVITY_LOGGING);
+        HttpClientOptions options = getHttpClientOptions();
 
         PathBuilder pathBuilder = new PathBuilder(CruiseControlEndpoints.USER_TASKS)
                         .addParameter(CruiseControlParameters.JSON, "true")
@@ -251,6 +306,7 @@ public class CruiseControlApiImpl implements CruiseControlApi {
             request.setTimeout(idleTimeout * 1000);
         }
 
+        addHttpHeaders(request);
         request.end();
 
         return result.future();
@@ -261,7 +317,7 @@ public class CruiseControlApiImpl implements CruiseControlApi {
     public Future<CruiseControlResponse> stopExecution(String host, int port) {
 
         Promise<CruiseControlResponse> result = Promise.promise();
-        HttpClientOptions options = new HttpClientOptions().setLogActivity(HTTP_CLIENT_ACTIVITY_LOGGING);
+        HttpClientOptions options = getHttpClientOptions();
 
         String path = new PathBuilder(CruiseControlEndpoints.STOP)
                         .addParameter(CruiseControlParameters.JSON, "true").build();
@@ -293,6 +349,7 @@ public class CruiseControlApiImpl implements CruiseControlApi {
             request.setTimeout(idleTimeout * 1000);
         }
 
+        addHttpHeaders(request);
         request.end();
 
         return result.future();

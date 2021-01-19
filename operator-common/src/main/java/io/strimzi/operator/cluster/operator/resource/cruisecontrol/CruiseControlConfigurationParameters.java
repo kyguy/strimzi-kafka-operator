@@ -20,6 +20,9 @@ public enum CruiseControlConfigurationParameters {
     CRUISE_CONTROL_BROKER_METRICS_WINDOW_MS_CONFIG_KEY("broker.metrics.window.ms"),
     CRUISE_CONTROL_BROKER_METRICS_WINDOW_NUM_CONFIG_KEY("num.broker.metrics.windows"),
     CRUISE_CONTROL_COMPLETED_USER_TASK_RETENTION_MS_CONFIG_KEY("completed.user.task.retention.time.ms"),
+    CRUISE_CONTROL_WEBSERVER_SECURITY_ENABLE("webserver.security.enable"),
+    CRUISE_CONTROL_WEBSERVER_AUTH_CREDENTIALS_FILE("webserver.auth.credentials.file"),
+    CRUISE_CONTROL_WEBSERVER_SSL_ENABLE("webserver.ssl.enable"),
 
     // Goals String lists
     CRUISE_CONTROL_GOALS_CONFIG_KEY("goals"),

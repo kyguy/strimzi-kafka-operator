@@ -3329,7 +3329,7 @@ public class KafkaAssemblyOperator extends AbstractAssemblyOperator<KubernetesCl
 
             Secret secret = ModelUtils.buildSecret(clusterCa, clusterCa.clusterOperatorSecret(), namespace,
                     ClusterOperator.secretName(name), "cluster-operator", "cluster-operator",
-                    labels, ownerRef, isMaintenanceTimeWindowsSatisfied(dateSupplier));
+                    labels, null, ownerRef, isMaintenanceTimeWindowsSatisfied(dateSupplier));
 
             return withVoid(secretOperations.reconcile(namespace, ClusterOperator.secretName(name),
                     secret));

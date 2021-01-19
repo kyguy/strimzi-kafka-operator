@@ -26,8 +26,6 @@ import io.strimzi.operator.cluster.ResourceUtils;
 import io.strimzi.operator.cluster.model.CruiseControl;
 import io.strimzi.operator.cluster.model.InvalidResourceException;
 import io.strimzi.operator.cluster.model.NoSuchResourceException;
-import io.strimzi.operator.cluster.operator.resource.cruisecontrol.CruiseControlApi;
-import io.strimzi.operator.cluster.operator.resource.cruisecontrol.CruiseControlApiImpl;
 import io.strimzi.operator.cluster.operator.resource.cruisecontrol.CruiseControlRestException;
 import io.strimzi.operator.cluster.operator.resource.cruisecontrol.MockCruiseControl;
 import io.strimzi.operator.cluster.operator.resource.ResourceOperatorSupplier;
@@ -133,10 +131,10 @@ public class KafkaRebalanceAssemblyOperatorTest {
                 return HOST;
             }
 
-            @Override
-            public CruiseControlApi cruiseControlClientProvider() {
-                return new CruiseControlApiImpl(vertx, 1);
-            }
+            //@Override
+            //public CruiseControlApi cruiseControlClientProvider() {
+            //    return new CruiseControlApiImpl(vertx, 1, new Secret(), new Secret());
+            // }
         };
 
         mockRebalanceOps = supplier.kafkaRebalanceOperator;

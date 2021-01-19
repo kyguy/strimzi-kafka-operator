@@ -40,8 +40,10 @@ broker.metric.sample.store.topic=strimzi.cruisecontrol.modeltrainingsamples
 metric.reporter.topic=strimzi.cruisecontrol.metrics
 capacity.config.file=$CC_CAPACITY_FILE
 cluster.configs.file=$CC_CLUSTER_CONFIG_FILE
+webserver.http.cors.allowmethods="OPTIONS,GET"
 webserver.accesslog.path=$CC_ACCESS_LOG
 webserver.http.address=0.0.0.0
+
 security.protocol=SSL
 ssl.keystore.type=PKCS12
 ssl.keystore.location=/tmp/cruise-control/replication.keystore.p12
@@ -49,5 +51,12 @@ ssl.keystore.password=$CERTS_STORE_PASSWORD
 ssl.truststore.type=PKCS12
 ssl.truststore.location=/tmp/cruise-control/replication.truststore.p12
 ssl.truststore.password=$CERTS_STORE_PASSWORD
+
+webserver.ssl.keystore.location=/tmp/cruise-control/replication.keystore.p12
+webserver.ssl.keystore.password=$CERTS_STORE_PASSWORD
+webserver.ssl.keystore.type=PKCS12
+webserver.ssl.key.password=$CERTS_STORE_PASSWORD
+
 ${CRUISE_CONTROL_CONFIGURATION}
 EOF
+

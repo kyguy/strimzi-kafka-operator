@@ -4,6 +4,7 @@
  */
 package io.strimzi.operator.cluster.model;
 
+import io.fabric8.kubernetes.api.model.HTTPHeader;
 import io.fabric8.kubernetes.api.model.ProbeBuilder;
 import io.strimzi.api.kafka.model.Probe;
 import io.strimzi.api.kafka.model.TlsSidecar;
@@ -47,6 +48,21 @@ public class ProbeGenerator {
         return probe;
     }
 
+    protected static io.fabric8.kubernetes.api.model.Probe httpProbe(Probe probeConfig, String path, String port, String scheme, List<HTTPHeader> headers) {
+        if (path == null || path.isEmpty() || port == null || port.isEmpty()) {
+            throw new IllegalArgumentException();
+        }
+        io.fabric8.kubernetes.api.model.Probe probe = defaultBuilder(probeConfig)
+                .withNewHttpGet()
+                  .withNewPath(path)
+                  .withNewPort(port)
+                  .withHttpHeaders(headers)
+                  .withScheme(scheme)
+                .endHttpGet()
+                .build();
+        return probe;
+    }
+
     public static io.fabric8.kubernetes.api.model.Probe execProbe(Probe probeConfig, List<String> command) {
         if (command == null || command.isEmpty()) {
             throw new IllegalArgumentException();
@@ -79,4 +95,5 @@ public class ProbeGenerator {
         }
         return ProbeGenerator.execProbe(tlsSidecarLivenessProbe, Arrays.asList("/opt/stunnel/stunnel_healthcheck.sh", "2181"));
     }
+
 }
