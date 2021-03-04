@@ -59,7 +59,7 @@ update_bundle:
 	# Update exisiting Cluster Service Version (CSV) file
 	yq ea -i 'select(fi==0).spec.install.spec.deployments[0].spec = select(fi==1).spec | select(fi==0)' $(CSV_FILE) $(DEPLOYMENT_FILE)
 	yq ea -i 'select(fi==0).spec.install.spec.permissions[0].rules = select(fi==1).rules | select(fi==0)' $(CSV_FILE) $(CRD_DIR)/020-ClusterRole-strimzi-cluster-operator-role.yaml
-	yq ea -i 'select(fi==0).spec.install.spec.clusterPermissions = select(fi==1).rules | select(fi==0)' $(CSV_FILE) $(CRD_DIR)/021-ClusterRole-strimzi-cluster-operator-role.yaml
+	yq ea -i 'select(fi==0).spec.install.spec.clusterPermissions[0].rules = select(fi==1).rules | select(fi==0)' $(CSV_FILE) $(CRD_DIR)/021-ClusterRole-strimzi-cluster-operator-role.yaml
 
 	yq ea -i '.metadata.name = "strimzi-cluster-operator-v$(CURRENT_BUNDLE_VERSION)"' $(CSV_FILE)
 	yq ea -i '.spec.install.spec.deployments[0].name = "strimzi-cluster-operator-v$(CURRENT_BUNDLE_VERSION)"' $(CSV_FILE)
