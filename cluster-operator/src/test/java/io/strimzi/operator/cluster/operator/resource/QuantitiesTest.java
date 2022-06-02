@@ -121,6 +121,8 @@ public class QuantitiesTest {
         assertThat(parseCpuAsMilliCpus("0m"), is(0));
         assertThat(parseCpuAsMilliCpus("0.0"), is(0));
         assertThat(parseCpuAsMilliCpus("0.000001"), is(0));
+        assertThat(parseCpuAsMilliCpus(""), is(0));
+
 
         try {
             parseCpuAsMilliCpus("0.0m");
