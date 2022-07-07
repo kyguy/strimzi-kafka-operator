@@ -21,7 +21,6 @@ import io.strimzi.operator.cluster.model.VolumeUtils;
 import io.strimzi.operator.cluster.operator.resource.Quantities;
 import io.strimzi.operator.common.Reconciliation;
 import io.strimzi.operator.common.ReconciliationLogger;
-import io.strimzi.operator.common.Util;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
