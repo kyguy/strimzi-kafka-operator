@@ -16,6 +16,11 @@ public interface CruiseControlApi {
     String CC_REST_API_ERROR_KEY = "errorMessage";
 
     /**
+     * Stacktrace key
+     */
+    String CC_REST_API_STACK_TRACE_KEY = "stackTrace";
+
+    /**
      * Progress key
      */
     String CC_REST_API_PROGRESS_KEY = "progress";

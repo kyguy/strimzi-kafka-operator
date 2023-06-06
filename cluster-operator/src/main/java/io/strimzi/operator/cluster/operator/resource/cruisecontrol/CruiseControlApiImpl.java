@@ -201,6 +201,8 @@ public class CruiseControlApiImpl implements CruiseControlApi {
                             JsonObject json = buffer.toJsonObject();
                             if (json.containsKey(CC_REST_API_ERROR_KEY)) {
                                 String errorMessage = json.getString(CC_REST_API_ERROR_KEY);
+                                String stackTrace = json.getString(CC_REST_API_STACK_TRACE_KEY);
+
                                 // If there was a client side error, check whether it was due to not enough data being available ...
                                 if (errorMessage.contains("NotEnoughValidWindowsException")) {
                                     CruiseControlRebalanceResponse ccResponse = new CruiseControlRebalanceResponse(userTaskID, json);
@@ -212,9 +214,11 @@ public class CruiseControlApiImpl implements CruiseControlApi {
                                     result.fail(new IllegalArgumentException("Some/all brokers specified don't exist"));
                                 } else {
                                     // If there was any other kind of error propagate this to the operator
-                                    result.fail(new CruiseControlRestException(new Exception(errorMessage.substring(errorMessage.indexOf(":") + 3, errorMessage.indexOf(":", errorMessage.indexOf("Exception")))),
-                                            "Error for request: " + host + ":" + port + path + ". Server returned: " +
-                                                    errorMessage));
+                                    String errorPrefix =  "Error for request: " + host + ":" + port + path + ". Server returned: ";
+                                    String message = errorPrefix + errorMessage;
+                                    Throwable cause = new Throwable(errorPrefix + stackTrace);
+
+                                    result.fail(new CruiseControlRestException(message, cause));
                                 }
                             } else {
                                 result.fail(new CruiseControlRestException(

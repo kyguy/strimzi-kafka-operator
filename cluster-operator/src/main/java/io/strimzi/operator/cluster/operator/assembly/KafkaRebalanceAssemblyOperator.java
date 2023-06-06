@@ -482,7 +482,7 @@ public class KafkaRebalanceAssemblyOperator
                                             .mapEmpty();
                                 });
                     }, exception -> {
-                        LOGGER.errorCr(reconciliation, "Status updated to [NotReady] due to error: {}", exception.getMessage());
+                        LOGGER.errorCr(reconciliation, "Status updated to [NotReady] due to error: {}", exception.getCause());
                         return updateStatus(reconciliation, kafkaRebalance, new KafkaRebalanceStatus(), exception)
                                 .mapEmpty();
                     });
@@ -877,9 +877,9 @@ public class KafkaRebalanceAssemblyOperator
                                             }
                                         })
                                         .onFailure(e -> {
-                                            LOGGER.errorCr(reconciliation, "Cruise Control getting rebalance proposal failed: " + e.getCause());
+                                            LOGGER.errorCr(reconciliation, "Cruise Control getting rebalance proposal failed", e.getCause());
                                             vertx.cancelTimer(t);
-                                            p.fail(e);
+                                            p.fail(e.getCause());
                                         });
                                 }
                             } else {
